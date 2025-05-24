@@ -73,7 +73,7 @@ export default function BillDetailPage() {
     const shareData = {
       title: `MediStore Bill: ${bill.billNumber}`,
       text: `View details for bill ${bill.billNumber} issued to ${bill.patientName}.`,
-      url: window.location.href,
+      url: window.location.href, // This will get the current page URL
     };
 
     if (navigator.share) {
@@ -81,11 +81,13 @@ export default function BillDetailPage() {
         await navigator.share(shareData);
         toast({ title: "Bill Shared", description: "The bill link has been shared." });
       } catch (error) {
+        // AbortError is common if the user cancels the share dialog, so we don't treat it as a full error.
         if ((error as DOMException).name !== 'AbortError') {
           toast({ title: "Share Error", description: "Could not share the bill. Please try again.", variant: "destructive" });
         }
       }
     } else {
+      // Fallback to copying the link to the clipboard
       try {
         await navigator.clipboard.writeText(shareData.url);
         toast({ title: "Link Copied", description: "Bill link copied to clipboard." });
@@ -213,5 +215,3 @@ export default function BillDetailPage() {
     </div>
   );
 }
-
-    
