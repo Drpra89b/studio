@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { DatePicker } from "@/components/shared/date-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import type { BillItem } from "@/app/view-bills/page"; // Import BillItem type
@@ -92,7 +92,7 @@ export default function NewBillPage() {
     // Set initial values on client mount to avoid hydration mismatch
     form.setValue('billDate', new Date());
     setBillNumber(`BILL-${Date.now().toString().slice(-6)}`);
-  }, [form]); // form instance is stable, so this runs once on mount
+  }, [form]);
 
 
   const [selectedDoctor, setSelectedDoctor] = React.useState<string>("");
@@ -170,62 +170,57 @@ export default function NewBillPage() {
     return currentBillItems.reduce((total, item) => total + item.totalPrice, 0);
   }, [currentBillItems]);
 
+  // Synchronize currentBillItems with the form's "items" field for validation
+  React.useEffect(() => {
+    const itemsForFormValidation = currentBillItems.map(item => ({
+      medicationName: item.medicationName,
+      quantity: item.quantity,
+      pricePerUnit: item.pricePerUnit,
+    }));
+    // Set the value and trigger validation.
+    // If itemsForFormValidation is empty, this should make the form invalid due to .min(1)
+    // If not empty, it should make it valid (assuming individual items are also valid)
+    form.setValue("items", itemsForFormValidation, { shouldValidate: true });
+  }, [currentBillItems, form]);
+
   function onSubmit(data: BillFormValues) {
     if (!billNumber) {
       toast({ title: "Error", description: "Bill number not generated yet.", variant: "destructive" });
       return;
     }
-    if (currentBillItems.length === 0) {
-      form.setError("items", { type: "manual", message: "At least one medication item is required." });
-      toast({ title: "Error", description: "Please add at least one medication item to the bill.", variant: "destructive" });
-      return;
-    }
-    
-    const itemsForForm = currentBillItems.map(item => ({
-      medicationName: item.medicationName,
-      quantity: item.quantity,
-      pricePerUnit: item.pricePerUnit,
-    }));
-    form.setValue("items", itemsForForm); 
+    // Validation for items.length === 0 is now handled by Zod/handleSubmit
+    // because of the useEffect synchronizing currentBillItems with form.items
 
-    form.trigger().then(isValid => {
-      if (!isValid) {
-        toast({ title: "Validation Error", description: "Please check the form for errors.", variant: "destructive"});
-        return;
-      }
+    const finalBillDate = data.billDate || new Date();
 
-      const finalBillDate = data.billDate || new Date(); // Fallback if date somehow null
-
-      const newBill: TodaysBill = {
-        id: Date.now().toString(),
-        billNumber: billNumber,
-        patientName: data.patientName,
-        doctorName: data.doctorName,
-        date: finalBillDate.toLocaleDateString('en-CA'),
-        totalAmount: grandTotal,
-        items: currentBillItems,
-      };
-      setTodaysBills(prevBills => [newBill, ...prevBills]);
-      toast({
-        title: "Bill Created",
-        description: `Bill ${billNumber} for ${data.patientName} has been generated. Amount: ₹${grandTotal.toFixed(2)}`,
-      });
-      
-      form.reset({ 
-        billDate: new Date(), // Set for the next bill
-        patientName: "", 
-        doctorName: "",
-        items: [],
-      });
-      setCurrentBillItems([]);
-      setSelectedDoctor("");
-      setManualDoctorName("");
-      setMedicationSearchTerm("");
-      setSelectedMedication(null);
-      setCurrentQuantity(1);
-      // Generate a new bill number for the next bill
-      setBillNumber(`BILL-${Date.now().toString().slice(-6)}`);
+    const newBill: TodaysBill = {
+      id: Date.now().toString(),
+      billNumber: billNumber,
+      patientName: data.patientName,
+      doctorName: data.doctorName,
+      date: finalBillDate.toLocaleDateString('en-CA'), // Use 'en-CA' for YYYY-MM-DD format or adjust as needed
+      totalAmount: grandTotal,
+      items: currentBillItems, // Use currentBillItems as it contains id and totalPrice per item
+    };
+    setTodaysBills(prevBills => [newBill, ...prevBills]);
+    toast({
+      title: "Bill Created",
+      description: `Bill ${billNumber} for ${data.patientName} has been generated. Amount: ₹${grandTotal.toFixed(2)}`,
     });
+    
+    form.reset({ 
+      billDate: new Date(), 
+      patientName: "", 
+      doctorName: "",
+      items: [], // Important to reset the form's items array
+    });
+    setCurrentBillItems([]); // This will trigger the useEffect to update form.items to []
+    setSelectedDoctor("");
+    setManualDoctorName("");
+    setMedicationSearchTerm("");
+    setSelectedMedication(null);
+    setCurrentQuantity(1);
+    setBillNumber(`BILL-${Date.now().toString().slice(-6)}`);
   }
 
   return (
@@ -266,7 +261,8 @@ export default function NewBillPage() {
                 )} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField control={form.control} name="doctorName" render={({ field }) => ( <FormItem className="hidden"><FormControl><Input {...field} /></FormControl></FormItem> )} />
+                {/* Hidden FormField for doctorName to be controlled by Select/Input logic */}
+                <FormField control={form.control} name="doctorName" render={({ field }) => ( <FormItem className="hidden"><FormControl><Input {...field} /></FormControl><FormMessage/></FormItem> )} />
                 <FormItem>
                   <FormLabel>Doctor Name (Select or Enter) *</FormLabel>
                   <Select onValueChange={handleDoctorSelect} value={selectedDoctor}>
@@ -288,6 +284,7 @@ export default function NewBillPage() {
                       </div>
                     </FormControl>
                   )}
+                  {/* Display error message for doctorName if any */}
                   <FormMessage>{form.formState.errors.doctorName?.message}</FormMessage>
                 </FormItem>
               </div>
@@ -354,9 +351,18 @@ export default function NewBillPage() {
                 </Button>
               </div>
               
-              {form.formState.errors.items && (
-                 <p className="text-sm font-medium text-destructive">{form.formState.errors.items.message || form.formState.errors.items.root?.message}</p>
-              )}
+              {/* Display error message for items array (e.g., "At least one item required") */}
+              {/* This comes from the Zod schema validation */}
+              <FormField
+                control={form.control}
+                name="items"
+                render={() => (
+                  <FormItem>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
 
               {currentBillItems.length > 0 && (
                 <div className="border-t pt-4">
@@ -446,4 +452,6 @@ export default function NewBillPage() {
     </div>
   );
 }
+    
+
     
