@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 
 const DOCTORS_STORAGE_KEY = "managedDoctorsList";
-const defaultDoctors = ["Dr. Smith", "Dr. Jones", "Dr. Brown (Other)"]; // Renamed Dr. Other
+const defaultDoctors = ["Dr. Smith", "Dr. Jones", "Dr. Other (Manual Entry)"]; // Ensured manual entry option
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -63,19 +63,19 @@ export default function SettingsPage() {
       toast({ title: "Error", description: "Doctor name cannot be empty.", variant: "destructive" });
       return;
     }
-    if (doctorsList.map(doc => doc.toLowerCase()).includes(newDoctorName.trim().toLowerCase())) {
-      toast({ title: "Error", description: `Dr. ${newDoctorName.trim()} already exists in the list.`, variant: "destructive" });
+    const formattedDoctorName = `Dr. ${newDoctorName.trim()}`;
+    if (doctorsList.map(doc => doc.toLowerCase()).includes(formattedDoctorName.toLowerCase())) {
+      toast({ title: "Error", description: `${formattedDoctorName} already exists in the list.`, variant: "destructive" });
       return;
     }
-    setDoctorsList(prevList => [...prevList, `Dr. ${newDoctorName.trim()}`]);
-    toast({ title: "Doctor Added", description: `Dr. ${newDoctorName.trim()} has been added.` });
+    setDoctorsList(prevList => [...prevList, formattedDoctorName]);
+    toast({ title: "Doctor Added", description: `${formattedDoctorName} has been added.` });
     setNewDoctorName("");
   };
 
   const handleRemoveDoctor = (doctorNameToRemove: string) => {
-    // Prevent removing default "Other" option if it's a critical part of a workflow
-    if (doctorNameToRemove.toLowerCase().includes("(other)")) {
-        toast({ title: "Action Not Allowed", description: "The 'Other' option cannot be removed.", variant: "destructive" });
+    if (doctorNameToRemove.toLowerCase() === "dr. other (manual entry)") {
+        toast({ title: "Action Not Allowed", description: "The 'Dr. Other (Manual Entry)' option cannot be removed.", variant: "destructive" });
         return;
     }
     setDoctorsList(prevList => prevList.filter(doc => doc !== doctorNameToRemove));
@@ -84,9 +84,11 @@ export default function SettingsPage() {
 
 
   if (!mounted) {
+    // Minimal render during SSR or before mount to avoid hydration issues with localStorage
     return (
       <div className="space-y-6">
          <PageHeader title="Settings" description="Configure application preferences and options." icon={SettingsIcon} />
+         {/* Placeholder or loading state for cards if necessary */}
       </div>
     );
   }
@@ -126,7 +128,7 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5 text-primary" /> Doctor Management</CardTitle>
-              <CardDescription>Add or remove doctor names for quick selection in billing.</CardDescription>
+              <CardDescription>Add or remove doctor names for quick selection in billing. This list will be used on the 'New Bill' page.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -145,11 +147,11 @@ export default function SettingsPage() {
               <Separator className="my-4" />
               <p className="text-sm font-medium">Current Doctors:</p>
               {doctorsList.length > 0 ? (
-                <ul className="list-none space-y-2">
+                <ul className="list-none space-y-2 max-h-60 overflow-y-auto pr-2">
                   {doctorsList.map((doctor, index) => (
                     <li key={index} className="flex items-center justify-between p-2 border rounded-md bg-muted/50">
                       <span>{doctor}</span>
-                      {!doctor.toLowerCase().includes("(other)") && ( // Don't allow deleting the "Other" option
+                      {doctor.toLowerCase() !== "dr. other (manual entry)" && ( 
                         <Button variant="ghost" size="icon" onClick={() => handleRemoveDoctor(doctor)} title={`Remove ${doctor}`}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -158,11 +160,10 @@ export default function SettingsPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-muted-foreground">No doctors added yet.</p>
+                <p className="text-sm text-muted-foreground">No doctors added yet. Add one above, or "Dr. Other (Manual Entry)" will be used as default.</p>
               )}
               <p className="text-xs text-muted-foreground pt-2">
-                Note: This list manages doctors available on the settings page.
-                To use these in "New Bill", further integration is needed.
+                The "Dr. Other (Manual Entry)" option allows for manual doctor name input on the billing page and cannot be removed.
               </p>
             </CardContent>
           </Card>
@@ -218,5 +219,7 @@ export default function SettingsPage() {
       </div>
     </div>
   );
+}
+    
 
     

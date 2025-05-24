@@ -17,9 +17,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import type { BillItem } from "@/app/view-bills/page"; // Import BillItem type
+import type { BillItem } from "@/app/view-bills/page"; 
 
-// Schema for individual item validation when adding to the form (not for the temporary list)
+const DOCTORS_STORAGE_KEY = "managedDoctorsList";
+const DEFAULT_DOCTORS_FALLBACK = ["Dr. Other (Manual Entry)"];
+
+
 const billItemSchema = z.object({
   medicationName: z.string().min(1, "Medication name is required."),
   quantity: z.coerce.number().int().min(1, "Quantity must be at least 1."),
@@ -35,8 +38,6 @@ const billFormSchema = z.object({
 
 type BillFormValues = z.infer<typeof billFormSchema>;
 
-const doctors = ["Dr. Smith", "Dr. Jones", "Dr. Brown", "Dr. Other (Manual Entry)"];
-
 export interface TodaysBill {
   id: string;
   billNumber: string;
@@ -44,14 +45,13 @@ export interface TodaysBill {
   doctorName: string;
   date: string;
   totalAmount: number;
-  items: BillItem[]; // This BillItem is from view-bills/page.tsx
+  items: BillItem[];
 }
 
 interface SampleMedication {
   id: string;
   name: string;
   pricePerUnit: number;
-  // stock?: number; // Optional: for future stock checking
 }
 
 const sampleMedications: SampleMedication[] = [
@@ -77,6 +77,10 @@ export default function NewBillPage() {
   const [currentBillItems, setCurrentBillItems] = React.useState<BillItem[]>([]);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
 
+  const [doctorsForDropdown, setDoctorsForDropdown] = React.useState<string[]>(DEFAULT_DOCTORS_FALLBACK);
+  const [selectedDoctor, setSelectedDoctor] = React.useState<string>("");
+  const [manualDoctorName, setManualDoctorName] = React.useState<string>("");
+
 
   const form = useForm<BillFormValues>({
     resolver: zodResolver(billFormSchema),
@@ -91,26 +95,41 @@ export default function NewBillPage() {
   React.useEffect(() => {
     form.setValue('billDate', new Date());
     setBillNumber(`BILL-${Date.now().toString().slice(-6)}`);
+
+    if (typeof window !== 'undefined') {
+      const storedDoctors = localStorage.getItem(DOCTORS_STORAGE_KEY);
+      if (storedDoctors) {
+        try {
+          const parsedDoctors = JSON.parse(storedDoctors);
+          if (Array.isArray(parsedDoctors) && parsedDoctors.length > 0) {
+            setDoctorsForDropdown(parsedDoctors);
+          } else {
+            setDoctorsForDropdown(DEFAULT_DOCTORS_FALLBACK);
+          }
+        } catch (e) {
+          console.error("Failed to parse doctors list from localStorage for New Bill page", e);
+          setDoctorsForDropdown(DEFAULT_DOCTORS_FALLBACK);
+        }
+      } else {
+        setDoctorsForDropdown(DEFAULT_DOCTORS_FALLBACK);
+      }
+    }
   }, [form]);
-
-
-  const [selectedDoctor, setSelectedDoctor] = React.useState<string>("");
-  const [manualDoctorName, setManualDoctorName] = React.useState<string>("");
 
   const handleDoctorSelect = (value: string) => {
     setSelectedDoctor(value);
     if (value !== "Dr. Other (Manual Entry)") {
-      form.setValue("doctorName", value);
+      form.setValue("doctorName", value, { shouldValidate: true });
       setManualDoctorName("");
     } else {
-      form.setValue("doctorName", ""); 
+      form.setValue("doctorName", manualDoctorName, { shouldValidate: true }); 
     }
   };
 
   const handleManualDoctorNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setManualDoctorName(e.target.value);
     if (selectedDoctor === "Dr. Other (Manual Entry)") {
-      form.setValue("doctorName", e.target.value);
+      form.setValue("doctorName", e.target.value, { shouldValidate: true });
     }
   };
 
@@ -226,8 +245,8 @@ export default function NewBillPage() {
               <CardTitle>Bill Details</CardTitle>
               <CardDescription>Fill in the patient and doctor information.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4"> {/* Reduced overall space-y */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> {/* Changed to md:grid-cols-2 and gap-4 */}
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="billNumber">Bill Number</Label>
                   <div className="relative">
@@ -255,7 +274,6 @@ export default function NewBillPage() {
                   </FormItem>
                 )} />
               
-                {/* Doctor Name - now part of the grid */}
                 <FormField control={form.control} name="doctorName" render={({ field }) => ( <FormItem className="hidden"><FormControl><Input {...field} /></FormControl><FormMessage/></FormItem> )} />
                 <FormItem>
                   <FormLabel>Doctor Name (Select or Enter) *</FormLabel>
@@ -267,7 +285,7 @@ export default function NewBillPage() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {doctors.map(doc => (<SelectItem key={doc} value={doc}>{doc}</SelectItem>))}
+                      {doctorsForDropdown.map(doc => (<SelectItem key={doc} value={doc}>{doc}</SelectItem>))}
                     </SelectContent>
                   </Select>
                   {selectedDoctor === "Dr. Other (Manual Entry)" && (
@@ -281,7 +299,6 @@ export default function NewBillPage() {
                   <FormMessage>{form.formState.errors.doctorName?.message}</FormMessage>
                 </FormItem>
               </div>
-              {/* End of the grid for Bill Details */}
             </CardContent>
           </Card>
 
@@ -350,7 +367,6 @@ export default function NewBillPage() {
                 name="items"
                 render={() => (
                   <FormItem>
-                    {/* This message is displayed by the form's validation if items array is empty on submit */}
                     <FormMessage /> 
                   </FormItem>
                 )}
