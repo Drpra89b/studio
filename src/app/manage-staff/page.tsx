@@ -37,7 +37,7 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 
-interface StaffMember {
+export interface StaffMember {
   id: string;
   name: string;
   username: string;
@@ -67,13 +67,34 @@ const editStaffFormSchema = z.object({
 });
 type EditStaffFormValues = z.infer<typeof editStaffFormSchema>;
 
+const STAFF_LIST_STORAGE_KEY = "staffList";
 
 export default function ManageStaffPage() {
   const { toast } = useToast();
-  const [staffList, setStaffList] = React.useState<StaffMember[]>(initialSampleStaff);
+  const [staffList, setStaffList] = React.useState<StaffMember[]>(() => {
+    if (typeof window !== 'undefined') {
+      const storedStaff = localStorage.getItem(STAFF_LIST_STORAGE_KEY);
+      if (storedStaff) {
+        try {
+          return JSON.parse(storedStaff);
+        } catch (e) {
+          console.error("Failed to parse staff list from localStorage", e);
+          return initialSampleStaff;
+        }
+      }
+    }
+    return initialSampleStaff;
+  });
+
   const [isAddStaffDialogOpen, setIsAddStaffDialogOpen] = React.useState(false);
   const [isEditStaffDialogOpen, setIsEditStaffDialogOpen] = React.useState(false);
   const [editingStaff, setEditingStaff] = React.useState<StaffMember | null>(null);
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STAFF_LIST_STORAGE_KEY, JSON.stringify(staffList));
+    }
+  }, [staffList]);
 
   const addForm = useForm<AddStaffFormValues>({
     resolver: zodResolver(addStaffFormSchema),
@@ -357,3 +378,6 @@ export default function ManageStaffPage() {
     </div>
   );
 }
+
+
+    

@@ -10,6 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import type { StaffMember } from "@/app/manage-staff/page"; // Import StaffMember type
+
+const STAFF_LIST_STORAGE_KEY = "staffList"; // Ensure this matches the key in manage-staff
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,7 +23,6 @@ export default function LoginPage() {
   const [pharmacyName, setPharmacyName] = React.useState("MediStore"); // Default pharmacy name
 
   React.useEffect(() => {
-    // Attempt to load pharmacy name from localStorage if it exists
     const storedPharmacyName = localStorage.getItem('pharmacyName');
     if (storedPharmacyName) {
       setPharmacyName(storedPharmacyName);
@@ -29,26 +31,62 @@ export default function LoginPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate login
-    if (username && password) {
-      localStorage.setItem("isAdmin", role === "admin" ? "true" : "false");
-      localStorage.setItem("isAuthenticated", "true"); // Mark as authenticated
-      
-      // Dispatch event to update pharmacy name in layout if it's changed here (optional)
-      // window.dispatchEvent(new CustomEvent('pharmacyNameUpdated', { detail: pharmacyName }));
-
-      toast({
-        title: "Login Successful",
-        description: `Welcome, ${username}! You are logged in as ${role}.`,
-      });
-      router.push("/"); // Redirect to dashboard or main page
-    } else {
+    if (!username || !password) {
       toast({
         title: "Login Failed",
         description: "Please enter username and password.",
         variant: "destructive",
       });
+      return;
     }
+
+    if (role === "staff") {
+      const storedStaffList = localStorage.getItem(STAFF_LIST_STORAGE_KEY);
+      let staffList: StaffMember[] = [];
+      if (storedStaffList) {
+        try {
+          staffList = JSON.parse(storedStaffList);
+        } catch (error) {
+          console.error("Failed to parse staff list from localStorage", error);
+          toast({
+            title: "Login Error",
+            description: "Could not verify staff details. Please contact admin.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      const staffMember = staffList.find(staff => staff.username === username);
+
+      if (!staffMember) {
+        toast({
+          title: "Login Failed",
+          description: "Invalid username or password.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (staffMember.status !== "Active") {
+        toast({
+          title: "Login Denied",
+          description: "Your account is not active. Please contact an administrator.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    // If admin or active staff, proceed
+    localStorage.setItem("isAdmin", role === "admin" ? "true" : "false");
+    localStorage.setItem("isAuthenticated", "true");
+
+    toast({
+      title: "Login Successful",
+      description: `Welcome, ${username}! You are logged in as ${role}.`,
+    });
+    router.push("/");
   };
 
   return (
@@ -68,7 +106,7 @@ export default function LoginPage() {
                 <Input
                   id="username"
                   type="text"
-                  placeholder="e.g., admin_user"
+                  placeholder="e.g., admin_user or staff_username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
@@ -112,8 +150,10 @@ export default function LoginPage() {
         </form>
       </Card>
       <p className="mt-6 text-xs text-muted-foreground">
-        This is a simulated login. No actual authentication is performed.
+        Staff login requires an active account created by an admin.
       </p>
     </div>
   );
 }
+
+    
