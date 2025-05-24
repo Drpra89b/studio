@@ -14,11 +14,14 @@ import {
   Settings,
   LogOut,
   Store,
+  LayoutDashboard, // Added Dashboard icon
 } from 'lucide-react';
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 
 const allNavItems = [
+  // Added Dashboard as the first item for admins
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, adminOnly: true }, 
   { href: '/', label: 'New Bill', icon: FilePlus2, adminOnly: false },
   { href: '/view-bills', label: 'View Bills', icon: ListOrdered, adminOnly: false },
   { href: '/add-stock', label: 'Add Stock', icon: PackagePlus, adminOnly: true },
