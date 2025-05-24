@@ -35,7 +35,7 @@ export default function BillDetailPage() {
   };
   
   const formatCurrency = (amount: number) => {
-    return amount.toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
+    return amount.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
   if (bill === undefined) {
@@ -68,12 +68,22 @@ export default function BillDetailPage() {
   };
 
   const handleShare = async () => {
-    if (!bill) return;
+    if (!bill || typeof window === 'undefined') return;
 
     const shareData = {
       title: `MediStore Bill: ${bill.billNumber}`,
-      text: `View details for bill ${bill.billNumber} issued to ${bill.patientName}.`,
-      url: window.location.href, // This will get the current page URL
+      text: `View details for bill ${bill.billNumber} issued to ${bill.patientName}. Amount: ${formatCurrency(bill.totalAmount)}`,
+      url: window.location.href,
+    };
+
+    const copyToClipboardFallback = async () => {
+      try {
+        await navigator.clipboard.writeText(shareData.url);
+        toast({ title: "Link Copied", description: "Bill link copied to clipboard." });
+      } catch (copyError) {
+        console.error("Clipboard API error:", copyError);
+        toast({ title: "Copy Error", description: "Could not copy link to clipboard.", variant: "destructive" });
+      }
     };
 
     if (navigator.share) {
@@ -81,21 +91,24 @@ export default function BillDetailPage() {
         await navigator.share(shareData);
         toast({ title: "Bill Shared", description: "The bill link has been shared." });
       } catch (error) {
-        // AbortError is common if the user cancels the share dialog, so we don't treat it as a full error.
-        if ((error as DOMException).name !== 'AbortError') {
-          console.error("Web Share API error:", error); // Added for debugging
+        console.error("Web Share API error:", error); 
+        const domError = error as DOMException;
+
+        if (domError.name === 'NotAllowedError') { // Specifically for permission denied
+          toast({
+            title: "Share Permission Denied",
+            description: "Your browser denied permission. Trying to copy link instead...",
+            variant: "destructive",
+          });
+          await copyToClipboardFallback();
+        } else if (domError.name !== 'AbortError') { // User didn't cancel, and it's not a permission error
           toast({ title: "Share Error", description: "Could not share the bill. Please try again.", variant: "destructive" });
         }
+        // If it's AbortError, do nothing (user cancelled intentionally)
       }
     } else {
-      // Fallback to copying the link to the clipboard
-      try {
-        await navigator.clipboard.writeText(shareData.url);
-        toast({ title: "Link Copied", description: "Bill link copied to clipboard." });
-      } catch (error) {
-        console.error("Clipboard API error:", error); // Added for debugging
-        toast({ title: "Copy Error", description: "Could not copy link to clipboard.", variant: "destructive" });
-      }
+      // Fallback to copying the link to the clipboard if navigator.share is not supported
+      await copyToClipboardFallback();
     }
   };
 
