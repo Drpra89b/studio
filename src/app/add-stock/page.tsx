@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -24,7 +25,7 @@ const stockFormSchema = z.object({
   pricePerPacking: z.coerce.number().positive("Price must be positive."),
   itemsInPack: z.coerce.number().int().positive("Items in pack must be a positive integer."),
   quantityOfStrips: z.coerce.number().int().positive("Quantity of strips/packs must be a positive integer."),
-  localQuantity: z.coerce.number().int().optional(), // This could be individual units if itemsInPack is > 1
+  localQuantity: z.coerce.number().int().optional(),
   shelfName: z.string().optional(),
   gstHsnCode: z.string().min(3, "HSN code is required.").max(8, "HSN code too long."),
 });
@@ -44,15 +45,26 @@ export default function AddStockPage() {
       pricePerPacking: 0,
       itemsInPack: 1,
       quantityOfStrips: 1,
+      localQuantity: undefined, // Will be treated as empty string by input if needed, or handled by Zod coerce
+      shelfName: "", // Initialize optional string fields to ""
       gstHsnCode: "",
+      // `type`, `manufacturingDate`, `expiryDate` will be undefined initially, handled by Select/DatePicker
     },
   });
 
   function onSubmit(data: StockFormValues) {
     console.log(data);
+    // Transform localQuantity to number if it's an empty string from form, or let Zod handle it.
+    // For submission, ensure localQuantity is a number or undefined.
+    const submissionData = {
+        ...data,
+        localQuantity: data.localQuantity === undefined || isNaN(Number(data.localQuantity)) ? undefined : Number(data.localQuantity),
+    };
+    console.log("Submitting:", submissionData);
+
     toast({
       title: "Stock Added",
-      description: `${data.name} (Batch: ${data.batch}) has been added to stock.`,
+      description: `${submissionData.name} (Batch: ${submissionData.batch}) has been added to stock.`,
     });
     form.reset();
   }
@@ -143,7 +155,15 @@ export default function AddStockPage() {
                 <FormField control={form.control} name="localQuantity" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Local Quantity (Individual Units)</FormLabel>
-                    <FormControl><Input type="number" placeholder="e.g., for specific tracking" {...field} /></FormControl>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        placeholder="e.g., for specific tracking" 
+                        {...field} 
+                        value={field.value === undefined ? "" : field.value} // Ensure value is not undefined
+                        onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
+                      />
+                    </FormControl>
                     <FormDescription>Optional, e.g., number of loose tablets.</FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -175,3 +195,5 @@ export default function AddStockPage() {
     </div>
   );
 }
+
+    
