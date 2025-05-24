@@ -14,14 +14,13 @@ import {
   Settings,
   LogOut,
   Store,
-  LayoutDashboard, // Added Dashboard icon
+  LayoutDashboard,
 } from 'lucide-react';
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 
 const allNavItems = [
-  // Added Dashboard as the first item for admins
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, adminOnly: true }, 
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, adminOnly: false }, // Now accessible to staff
   { href: '/', label: 'New Bill', icon: FilePlus2, adminOnly: false },
   { href: '/view-bills', label: 'View Bills', icon: ListOrdered, adminOnly: false },
   { href: '/add-stock', label: 'Add Stock', icon: PackagePlus, adminOnly: true },
@@ -41,11 +40,18 @@ interface SidebarNavProps {
 export default function SidebarNav({ isAdmin }: SidebarNavProps) {
   const pathname = usePathname();
 
-  const navItems = isAdmin ? allNavItems : allNavItems.filter(item => !item.adminOnly);
+  const navItems = isAdmin ? allNavItems : allNavItems.filter(item => !item.adminOnly || item.href === '/dashboard' || item.href === '/' || item.href === '/view-bills' || item.href === '/view-stock' || item.href === '/logout' );
+  // Ensure staff always see these core items even if adminOnly is false by mistake for others.
+  // More robustly: filter out adminOnly: true items if !isAdmin
+  const effectiveNavItems = allNavItems.filter(item => {
+    if (isAdmin) return true; // Admins see everything
+    return !item.adminOnly; // Staff see items not marked as adminOnly
+  });
+
 
   return (
     <SidebarMenu>
-      {navItems.map((item) => (
+      {effectiveNavItems.map((item) => (
         <SidebarMenuItem key={item.href}>
           <SidebarMenuButton
             asChild
