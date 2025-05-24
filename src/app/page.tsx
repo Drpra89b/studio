@@ -83,13 +83,12 @@ export default function NewBillPage() {
     defaultValues: {
       patientName: "",
       doctorName: "",
-      billDate: undefined, // Initialize as undefined to prevent hydration mismatch
+      billDate: undefined, 
       items: [], 
     },
   });
 
   React.useEffect(() => {
-    // Set initial values on client mount to avoid hydration mismatch
     form.setValue('billDate', new Date());
     setBillNumber(`BILL-${Date.now().toString().slice(-6)}`);
   }, [form]);
@@ -131,7 +130,6 @@ export default function NewBillPage() {
     setMedicationSearchTerm(medication.name); 
     setMedicationSearchResults([]); 
     setCurrentQuantity(1); 
-    // document.getElementById('itemQuantityInput')?.focus();
   };
   
   const handleAddItemToBill = () => {
@@ -170,7 +168,6 @@ export default function NewBillPage() {
     return currentBillItems.reduce((total, item) => total + item.totalPrice, 0);
   }, [currentBillItems]);
 
-  // Synchronize currentBillItems with the form's "items" field for validation
   React.useEffect(() => {
     const itemsForFormValidation = currentBillItems.map(item => ({
       medicationName: item.medicationName,
@@ -229,8 +226,8 @@ export default function NewBillPage() {
               <CardTitle>Bill Details</CardTitle>
               <CardDescription>Fill in the patient and doctor information.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <CardContent className="space-y-4"> {/* Reduced overall space-y */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> {/* Changed to md:grid-cols-2 and gap-4 */}
                 <div className="space-y-2">
                   <Label htmlFor="billNumber">Bill Number</Label>
                   <div className="relative">
@@ -257,9 +254,8 @@ export default function NewBillPage() {
                     <FormMessage />
                   </FormItem>
                 )} />
-              </div>
               
-              <div> {/* Wrapper for Doctor Name section to allow full width */}
+                {/* Doctor Name - now part of the grid */}
                 <FormField control={form.control} name="doctorName" render={({ field }) => ( <FormItem className="hidden"><FormControl><Input {...field} /></FormControl><FormMessage/></FormItem> )} />
                 <FormItem>
                   <FormLabel>Doctor Name (Select or Enter) *</FormLabel>
@@ -285,6 +281,7 @@ export default function NewBillPage() {
                   <FormMessage>{form.formState.errors.doctorName?.message}</FormMessage>
                 </FormItem>
               </div>
+              {/* End of the grid for Bill Details */}
             </CardContent>
           </Card>
 
@@ -353,7 +350,8 @@ export default function NewBillPage() {
                 name="items"
                 render={() => (
                   <FormItem>
-                    <FormMessage /> {/* Displays "At least one item required" from Zod */}
+                    {/* This message is displayed by the form's validation if items array is empty on submit */}
+                    <FormMessage /> 
                   </FormItem>
                 )}
               />
