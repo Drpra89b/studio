@@ -150,7 +150,7 @@ body {
   }
 
   @page {
-    size: auto; /* auto is the initial value */
+    size: A5; /* Changed from auto to A5 */
     margin: 0.5in; /* Adjust margins as needed */
   }
 }
