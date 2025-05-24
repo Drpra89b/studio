@@ -1,8 +1,10 @@
+
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import PageHeader from "@/components/shared/page-header";
-import { ListOrdered, Search } from "lucide-react";
+import { ListOrdered, Search, FileText } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,23 +12,103 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-interface Bill {
+interface BillItem {
+  id: string;
+  medicationName: string;
+  batchNo: string;
+  expiryDate: string;
+  quantity: number;
+  pricePerUnit: number;
+  totalPrice: number;
+}
+
+export interface Bill {
   id: string;
   billNumber: string;
   patientName: string;
   doctorName: string;
-  date: string;
+  date: string; // ISO string for consistency, format for display
   totalAmount: number;
   status: "Paid" | "Pending" | "Cancelled";
+  items: BillItem[];
+  paymentMethod?: string;
+  notes?: string;
 }
 
 const sampleBills: Bill[] = [
-  { id: "1", billNumber: "BILL-789012", patientName: "Alice Wonderland", doctorName: "Dr. Smith", date: "2024-07-20", totalAmount: 125.50, status: "Paid" },
-  { id: "2", billNumber: "BILL-789013", patientName: "Bob The Builder", doctorName: "Dr. Jones", date: "2024-07-20", totalAmount: 75.00, status: "Pending" },
-  { id: "3", billNumber: "BILL-789014", patientName: "Charlie Brown", doctorName: "Dr. Smith", date: "2024-07-19", totalAmount: 210.75, status: "Paid" },
-  { id: "4", billNumber: "BILL-789015", patientName: "Diana Prince", doctorName: "Dr. Brown", date: "2024-07-19", totalAmount: 55.20, status: "Cancelled" },
-  { id: "5", billNumber: "BILL-789016", patientName: "Edward Scissorhands", doctorName: "Dr. Jones", date: "2024-07-18", totalAmount: 150.00, status: "Paid" },
+  {
+    id: "1",
+    billNumber: "BILL-789012",
+    patientName: "Alice Wonderland",
+    doctorName: "Dr. Smith",
+    date: new Date("2024-07-20").toISOString(),
+    totalAmount: 125.50,
+    status: "Paid",
+    items: [
+      { id: "item1", medicationName: "Paracetamol 500mg", batchNo: "P123", expiryDate: "2025-12-31", quantity: 20, pricePerUnit: 2.50, totalPrice: 50.00 },
+      { id: "item2", medicationName: "Amoxicillin 250mg", batchNo: "A098", expiryDate: "2024-11-30", quantity: 15, pricePerUnit: 5.03, totalPrice: 75.50 },
+    ],
+    paymentMethod: "Credit Card",
+    notes: "Patient requested a digital copy."
+  },
+  {
+    id: "2",
+    billNumber: "BILL-789013",
+    patientName: "Bob The Builder",
+    doctorName: "Dr. Jones",
+    date: new Date("2024-07-20").toISOString(),
+    totalAmount: 75.00,
+    status: "Pending",
+    items: [
+      { id: "item3", medicationName: "Ibuprofen 200mg", batchNo: "I765", expiryDate: "2025-06-30", quantity: 30, pricePerUnit: 2.50, totalPrice: 75.00 },
+    ],
+    paymentMethod: "Cash",
+  },
+  {
+    id: "3",
+    billNumber: "BILL-789014",
+    patientName: "Charlie Brown",
+    doctorName: "Dr. Smith",
+    date: new Date("2024-07-19").toISOString(),
+    totalAmount: 210.75,
+    status: "Paid",
+    items: [
+      { id: "item4", medicationName: "Vitamin C Tablets", batchNo: "VC001", expiryDate: "2026-01-01", quantity: 50, pricePerUnit: 1.00, totalPrice: 50.00 },
+      { id: "item5", medicationName: "Cough Syrup", batchNo: "CS002", expiryDate: "2025-08-15", quantity: 2, pricePerUnit: 80.375, totalPrice: 160.75 },
+    ],
+    notes: "Follow up in a week."
+  },
+  {
+    id: "4",
+    billNumber: "BILL-789015",
+    patientName: "Diana Prince",
+    doctorName: "Dr. Brown",
+    date: new Date("2024-07-19").toISOString(),
+    totalAmount: 55.20,
+    status: "Cancelled",
+    items: [
+      { id: "item6", medicationName: "Band-Aids (Box)", batchNo: "BA003", expiryDate: "2027-01-01", quantity: 1, pricePerUnit: 55.20, totalPrice: 55.20 },
+    ],
+  },
+  {
+    id: "5",
+    billNumber: "BILL-789016",
+    patientName: "Edward Scissorhands",
+    doctorName: "Dr. Jones",
+    date: new Date("2024-07-18").toISOString(),
+    totalAmount: 150.00,
+    status: "Paid",
+    items: [
+      { id: "item7", medicationName: "Aspirin 75mg", batchNo: "ASP002", expiryDate: "2025-02-28", quantity: 100, pricePerUnit: 1.50, totalPrice: 150.00 },
+    ],
+    paymentMethod: "Insurance",
+  },
 ];
+
+// Make sampleBills exportable so it can be used by the detail page
+export const getSampleBills = () => sampleBills;
+export const getBillById = (id: string): Bill | undefined => sampleBills.find(bill => bill.id === id);
+
 
 export default function ViewBillsPage() {
   const [searchTerm, setSearchTerm] = React.useState("");
@@ -42,6 +124,10 @@ export default function ViewBillsPage() {
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(event.target.value);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString();
   };
 
   return (
@@ -90,12 +176,12 @@ export default function ViewBillsPage() {
                       <TableCell className="font-medium">{bill.billNumber}</TableCell>
                       <TableCell>{bill.patientName}</TableCell>
                       <TableCell>{bill.doctorName}</TableCell>
-                      <TableCell>{bill.date}</TableCell>
+                      <TableCell>{formatDate(bill.date)}</TableCell>
                       <TableCell>
                         <Badge variant={
                           bill.status === "Paid" ? "default" :
                           bill.status === "Pending" ? "secondary" : 
-                          "destructive" // Using 'default' which is primary, 'secondary' for pending
+                          "destructive"
                         }
                         className={cn(
                           bill.status === "Paid" && "bg-green-500 hover:bg-green-600 text-white",
@@ -108,7 +194,11 @@ export default function ViewBillsPage() {
                       </TableCell>
                       <TableCell className="text-right">${bill.totalAmount.toFixed(2)}</TableCell>
                       <TableCell className="text-center">
-                        <Button variant="outline" size="sm">View</Button>
+                        <Button variant="outline" size="sm" asChild>
+                          <Link href={`/view-bills/${bill.id}`}>
+                             <FileText className="mr-2 h-4 w-4" /> View
+                          </Link>
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -121,3 +211,5 @@ export default function ViewBillsPage() {
     </div>
   );
 }
+
+    
