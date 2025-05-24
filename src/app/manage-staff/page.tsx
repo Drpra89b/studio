@@ -5,9 +5,10 @@ import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import Image from 'next/image';
 
 import PageHeader from "@/components/shared/page-header";
-import { Users, QrCode, UserPlus, Edit, CheckCircle, XCircle, UserCheck, UserX } from "lucide-react";
+import { Users, QrCode, UserPlus, Edit, UserCheck, UserX } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -53,6 +54,8 @@ export default function ManageStaffPage() {
   const { toast } = useToast();
   const [staffList, setStaffList] = React.useState<StaffMember[]>(initialSampleStaff);
   const [isAddStaffDialogOpen, setIsAddStaffDialogOpen] = React.useState(false);
+  const [isQrCodeDialogOpen, setIsQrCodeDialogOpen] = React.useState(false);
+  const [selectedStaffForActivation, setSelectedStaffForActivation] = React.useState<StaffMember | null>(null);
 
   const form = useForm<AddStaffFormValues>({
     resolver: zodResolver(addStaffFormSchema),
@@ -94,7 +97,7 @@ export default function ManageStaffPage() {
       toastMessage = `${staffMemberName} has been activated.`;
     } else if (newStatus === "Disabled") {
       toastMessage = `${staffMemberName} has been disabled.`;
-    } else { // This case handles "Pending Activation" if ever needed, or other future statuses
+    } else { 
       toastMessage = `${staffMemberName}'s status set to ${newStatus}.`;
     }
 
@@ -103,6 +106,19 @@ export default function ManageStaffPage() {
       description: toastMessage,
       variant: newStatus === "Disabled" ? "destructive" : "default",
     });
+  };
+
+  const openQrActivationDialog = (staff: StaffMember) => {
+    setSelectedStaffForActivation(staff);
+    setIsQrCodeDialogOpen(true);
+  };
+
+  const confirmQrActivation = () => {
+    if (selectedStaffForActivation) {
+      handleToggleStaffStatus(selectedStaffForActivation.id, "Active");
+    }
+    setIsQrCodeDialogOpen(false);
+    setSelectedStaffForActivation(null);
   };
 
 
@@ -221,7 +237,7 @@ export default function ManageStaffPage() {
                         </Button>
                         {staff.status === "Pending Activation" && (
                            <>
-                             <Button variant="outline" size="sm" className="text-primary border-primary hover:bg-primary/10" onClick={() => handleToggleStaffStatus(staff.id, "Active")}>
+                             <Button variant="outline" size="sm" className="text-primary border-primary hover:bg-primary/10" onClick={() => openQrActivationDialog(staff)}>
                                <QrCode className="mr-2 h-4 w-4"/> Activate
                              </Button>
                              <Button variant="destructive" size="sm" onClick={() => handleToggleStaffStatus(staff.id, "Disabled")}>
@@ -249,21 +265,58 @@ export default function ManageStaffPage() {
         </CardContent>
       </Card>
 
+      {/* QR Code Activation Dialog */}
+      {selectedStaffForActivation && (
+        <Dialog open={isQrCodeDialogOpen} onOpenChange={(isOpen) => {
+          setIsQrCodeDialogOpen(isOpen);
+          if (!isOpen) setSelectedStaffForActivation(null);
+        }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Activate Staff: {selectedStaffForActivation.name}</DialogTitle>
+              <DialogDescription>
+                Ask {selectedStaffForActivation.name} to scan this QR code with their device to complete activation.
+                Once they confirm successful scanning, click the button below.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col items-center justify-center space-y-4 py-4">
+              <Image 
+                src="https://placehold.co/200x200.png?text=Scan+Me" 
+                alt="Placeholder QR Code" 
+                width={200} 
+                height={200}
+                data-ai-hint="qr code" 
+                className="rounded-md shadow-md"
+              />
+              <p className="text-sm text-muted-foreground">
+                (This is a placeholder QR code for demonstration.)
+              </p>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => {setIsQrCodeDialogOpen(false); setSelectedStaffForActivation(null);}}>Cancel</Button>
+              <Button type="button" onClick={confirmQrActivation}>Confirm Activation & Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
       <Card>
         <CardHeader>
-          <CardTitle>Staff Activation Process</CardTitle>
+          <CardTitle>Staff Activation Process Notes</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p>New staff members will be added with a "Pending Activation" status.</p>
-          <p>An Admin can then activate the staff account by clicking the "Activate" button in the table above. Disabling or enabling staff is also done via the action buttons.</p>
-          <p className="font-semibold text-foreground">Note: The QR code generation part mentioned below is a conceptual process for future enhancement; the "Activate" button currently changes the status directly.</p>
-           <div className="flex items-center justify-center p-6 bg-muted rounded-md mt-4">
-            <QrCode className="h-16 w-16 text-muted-foreground/50" />
-            <p className="ml-4">QR Code generation and scanning simulation area.</p>
-          </div>
+          <p>New staff members are added with a "Pending Activation" status.</p>
+          <p>To activate a staff account:</p>
+          <ol className="list-decimal list-inside pl-4">
+            <li>Click the "Activate" button (with the <QrCode className="inline h-4 w-4" /> icon) next to the staff member.</li>
+            <li>A dialog will appear displaying a QR code (placeholder for this demo).</li>
+            <li>Instruct the staff member to scan this QR code with their device (simulated step).</li>
+            <li>Once the staff member confirms they have scanned it, click "Confirm Activation & Close" in the dialog.</li>
+            <li>The staff member's status will then be updated to "Active".</li>
+          </ol>
+          <p>Disabling or re-enabling staff is also done via the action buttons in the table.</p>
         </CardContent>
       </Card>
     </div>
   );
 }
-
