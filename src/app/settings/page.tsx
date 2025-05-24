@@ -1,7 +1,9 @@
+
 "use client";
 
+import * as React from "react";
 import PageHeader from "@/components/shared/page-header";
-import { Settings as SettingsIcon, Printer, FileText, Users, Database,Palette } from "lucide-react";
+import { Settings as SettingsIcon, Printer, FileText, Users, Database, Palette } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -11,6 +13,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 
 export default function SettingsPage() {
+  const [isDarkMode, setIsDarkMode] = React.useState(false);
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+    setIsDarkMode(document.documentElement.classList.contains('dark'));
+  }, []);
+
+  const handleThemeChange = (checked: boolean) => {
+    setIsDarkMode(checked);
+    if (checked) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
+
+  if (!mounted) {
+    // To prevent hydration mismatch, don't render the switch until mounted client-side
+    // You could show a loader here if desired
+    return null; 
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader title="Settings" description="Configure application preferences and options." icon={SettingsIcon} />
@@ -120,11 +145,10 @@ export default function SettingsPage() {
                             Toggle between light and dark themes.
                         </p>
                     </div>
-                    <Switch id="darkMode" onCheckedChange={(checked) => {
-                        if (checked) document.documentElement.classList.add('dark');
-                        else document.documentElement.classList.remove('dark');
-                    }} 
-                    checked={typeof window !== 'undefined' ? document.documentElement.classList.contains('dark') : false}
+                    <Switch 
+                      id="darkMode" 
+                      onCheckedChange={handleThemeChange}
+                      checked={isDarkMode}
                     />
                 </div>
                 {/* More appearance settings can be added here */}

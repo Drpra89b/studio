@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -47,11 +48,11 @@ interface TodaysBill {
 
 export default function NewBillPage() {
   const { toast } = useToast();
-  const [billNumber, setBillNumber] = React.useState("");
+  const [billNumber, setBillNumber] = React.useState<string | null>(null);
   const [todaysBills, setTodaysBills] = React.useState<TodaysBill[]>([]);
   
   React.useEffect(() => {
-    // Generate a unique bill number (example)
+    // Generate a unique bill number client-side
     setBillNumber(`BILL-${Date.now().toString().slice(-6)}`);
   }, []);
 
@@ -85,6 +86,14 @@ export default function NewBillPage() {
   };
 
   function onSubmit(data: BillFormValues) {
+    if (!billNumber) {
+      toast({
+        title: "Error",
+        description: "Bill number not generated yet. Please wait a moment.",
+        variant: "destructive",
+      });
+      return;
+    }
     const newBill: TodaysBill = {
       id: Date.now().toString(),
       billNumber: billNumber,
@@ -102,7 +111,7 @@ export default function NewBillPage() {
     form.reset({ billDate: new Date(), patientName: "", doctorName: "" });
     setSelectedDoctor("");
     setManualDoctorName("");
-    setBillNumber(`BILL-${Date.now().toString().slice(-6)}`);
+    setBillNumber(`BILL-${Date.now().toString().slice(-6)}`); // Generate new bill number for next bill
   }
 
   return (
@@ -120,7 +129,12 @@ export default function NewBillPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="billNumber">Bill Number</Label>
-                  <Input id="billNumber" value={billNumber} readOnly className="bg-muted cursor-not-allowed" />
+                  <Input 
+                    id="billNumber" 
+                    value={billNumber ?? "Generating..."} 
+                    readOnly 
+                    className="bg-muted cursor-not-allowed" 
+                  />
                 </div>
 
                 <FormField
@@ -211,7 +225,7 @@ export default function NewBillPage() {
 
             </CardContent>
             <CardFooter>
-              <Button type="submit" className="ml-auto">
+              <Button type="submit" className="ml-auto" disabled={!billNumber}>
                 <FilePlus2 className="mr-2 h-4 w-4" /> Generate Bill
               </Button>
             </CardFooter>
