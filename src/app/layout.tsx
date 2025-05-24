@@ -34,7 +34,7 @@ export default function RootLayout({
 }>) {
   const [dynamicPharmacyName, setDynamicPharmacyName] = React.useState("MediStore");
   const [mounted, setMounted] = React.useState(false);
-  const [isAdmin, setIsAdmin] = React.useState(true); // Simulate admin status, true = admin
+  const [isAdmin, setIsAdmin] = React.useState(false); // Simulate admin status, true = admin, false = staff
 
   React.useEffect(() => {
     setMounted(true);
