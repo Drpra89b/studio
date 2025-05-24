@@ -19,9 +19,8 @@ const IS_TAX_ENABLED_KEY = "isTaxEnabled";
 const DEFAULT_GST_RATE_KEY = "defaultGstRate";
 const PHARMACY_PROFILE_KEY = "pharmacyProfile";
 const STAFF_LIST_KEY = "staffList";
-const APP_VERSION = "1.0.0"; // Define app version for metadata
+const APP_VERSION = "1.0.0"; 
 
-// List of all localStorage keys managed by the app
 const APP_STORAGE_KEYS = [
   DOCTORS_STORAGE_KEY,
   IS_TAX_ENABLED_KEY,
@@ -33,12 +32,53 @@ const APP_STORAGE_KEYS = [
 
 const defaultDoctorsFallback = ["Dr. Other (Manual Entry)"];
 
+// Helper function to escape CSV cell data
+const escapeCsvCell = (cellData: any): string => {
+  if (cellData === null || cellData === undefined) {
+    return "";
+  }
+  const stringData = String(cellData);
+  if (stringData.includes(",") || stringData.includes("\n") || stringData.includes('"')) {
+    return `"${stringData.replace(/"/g, '""')}"`;
+  }
+  return stringData;
+};
+
+// Helper function to convert an array of objects to a CSV string
+const arrayToCsvString = (data: Record<string, any>[], headers: string[]): string => {
+  if (!data || data.length === 0) return "";
+  const headerRow = headers.map(escapeCsvCell).join(",");
+  const dataRows = data.map(row => 
+    headers.map(header => escapeCsvCell(row[header])).join(",")
+  );
+  return [headerRow, ...dataRows].join("\n");
+};
+
+// Helper function to convert a simple object to key-value CSV string
+const objectToKeyValueCsvString = (obj: Record<string, any>, sectionName: string): string => {
+  if (!obj) return "";
+  const header = `# ${sectionName}\nkey,value`;
+  const rows = Object.entries(obj).map(([key, value]) => 
+    `${escapeCsvCell(key)},${escapeCsvCell(value)}`
+  );
+  return [header, ...rows].join("\n");
+};
+
+// Helper function to convert an array of strings to a CSV string
+const stringArrayToCsvString = (arr: string[], headerName: string, sectionName: string): string => {
+  if (!arr || arr.length === 0) return "";
+  const header = `# ${sectionName}\n${escapeCsvCell(headerName)}`;
+  const rows = arr.map(escapeCsvCell);
+  return [header, ...rows].join("\n");
+};
+
 
 export default function SettingsPage() {
   const { toast } = useToast();
   const [isDarkMode, setIsDarkMode] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [backupFormat, setBackupFormat] = React.useState<"json" | "csv">("json");
 
   const [doctorsList, setDoctorsList] = React.useState<string[]>(() => {
     if (typeof window !== 'undefined') {
@@ -47,7 +87,6 @@ export default function SettingsPage() {
         try {
           const parsed = JSON.parse(storedDoctors);
           if (Array.isArray(parsed)) {
-             // Ensure "Dr. Other (Manual Entry)" is always present and at the top if missing
             const uniqueDoctors = Array.from(new Set([defaultDoctorsFallback[0], ...parsed]));
             return uniqueDoctors;
           }
@@ -72,7 +111,7 @@ export default function SettingsPage() {
   const [defaultGstRate, setDefaultGstRate] = React.useState<number | string>(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem(DEFAULT_GST_RATE_KEY);
-      return stored ? parseFloat(stored) : 12; // Default GST rate
+      return stored ? parseFloat(stored) : 12; 
     }
     return 12;
   });
@@ -144,7 +183,7 @@ export default function SettingsPage() {
         const numValue = parseFloat(value);
         if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
             setDefaultGstRate(numValue);
-        } else if (isNaN(numValue) && value.length <=5) { // Allow typing, e.g. "12."
+        } else if (isNaN(numValue) && value.length <=5) { 
             setDefaultGstRate(value);
         }
     }
@@ -175,47 +214,95 @@ export default function SettingsPage() {
         try {
           appData[key] = JSON.parse(item);
         } catch (e) {
-          // If not JSON (e.g. simple string, boolean, or number stored as string), store as is.
-          // JSON.parse would fail for "true" or "12" directly.
-          // But if it was stringified object/array, parsing is needed.
-          // For our known keys, isTaxEnabled and defaultGstRate are boolean/number like.
-          // pharmacyName is string. Others are stringified JSON.
           if (key === IS_TAX_ENABLED_KEY) appData[key] = item === 'true';
           else if (key === DEFAULT_GST_RATE_KEY) appData[key] = parseFloat(item);
           else if (key === "pharmacyName") appData[key] = item;
-          else appData[key] = item; // Fallback for unexpected non-JSON, though most should be JSON or handled above
+          else appData[key] = item; 
         }
       }
     });
     
-    const backupFileContent = {
-      metadata: {
-        appName: "MediStoreApp",
-        backupDate: new Date().toISOString(),
-        version: APP_VERSION,
-      },
-      data: appData
-    };
+    let fileContentString: string;
+    let fileExtension: string;
+    let mimeType: string;
 
-    const jsonString = JSON.stringify(backupFileContent, null, 2);
-    const blob = new Blob([jsonString], { type: "application/json" });
+    if (backupFormat === "json") {
+      const backupFileContent = {
+        metadata: {
+          appName: "MediStoreApp",
+          backupDate: new Date().toISOString(),
+          version: APP_VERSION,
+          format: "json",
+        },
+        data: appData
+      };
+      fileContentString = JSON.stringify(backupFileContent, null, 2);
+      fileExtension = "json";
+      mimeType = "application/json";
+    } else { // CSV format
+      let csvOutput = `# MediStoreApp Backup - CSV Format\n# Backup Date: ${new Date().toISOString()}\n# Version: ${APP_VERSION}\n\n`;
+      
+      // Pharmacy Profile
+      if (appData[PHARMACY_PROFILE_KEY]) {
+        csvOutput += objectToKeyValueCsvString(appData[PHARMACY_PROFILE_KEY], "Pharmacy Profile") + "\n\n";
+      }
+      
+      // Staff List
+      if (appData[STAFF_LIST_KEY] && Array.isArray(appData[STAFF_LIST_KEY])) {
+        const staffHeaders = ["id", "name", "username", "email", "status"];
+        csvOutput += `# Staff List\n` + arrayToCsvString(appData[STAFF_LIST_KEY], staffHeaders) + "\n\n";
+      }
+
+      // Doctors List
+      if (appData[DOCTORS_STORAGE_KEY] && Array.isArray(appData[DOCTORS_STORAGE_KEY])) {
+         csvOutput += stringArrayToCsvString(appData[DOCTORS_STORAGE_KEY], "doctorName", "Doctors List") + "\n\n";
+      }
+
+      // Other settings
+      csvOutput += `# Application Settings\nkey,value\n`;
+      if (appData[IS_TAX_ENABLED_KEY] !== undefined) {
+        csvOutput += `${escapeCsvCell(IS_TAX_ENABLED_KEY)},${escapeCsvCell(appData[IS_TAX_ENABLED_KEY])}\n`;
+      }
+      if (appData[DEFAULT_GST_RATE_KEY] !== undefined) {
+         csvOutput += `${escapeCsvCell(DEFAULT_GST_RATE_KEY)},${escapeCsvCell(appData[DEFAULT_GST_RATE_KEY])}\n`;
+      }
+       if (appData["pharmacyName"] !== undefined) {
+         csvOutput += `${escapeCsvCell("pharmacyName")},${escapeCsvCell(appData["pharmacyName"])}\n`;
+      }
+
+      fileContentString = csvOutput;
+      fileExtension = "csv";
+      mimeType = "text/csv";
+    }
+
+    const blob = new Blob([fileContentString], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    a.download = `medistore_backup_${timestamp}.json`;
+    a.download = `medistore_backup_${timestamp}.${fileExtension}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
     toast({
-      title: "Data Backup Successful",
-      description: "Your application data has been downloaded as a JSON file.",
+      title: `Data Backup Successful (${backupFormat.toUpperCase()})`,
+      description: `Your application data has been downloaded as a ${fileExtension.toUpperCase()} file.`,
     });
   };
 
   const handleRestoreDataClick = () => {
+    // For now, restore only works with JSON. CSV restore is complex.
+    if (backupFormat === 'csv') {
+      toast({
+        title: "Restore Note",
+        description: "Data restoration is currently supported for JSON backups only. Please switch format to JSON if you intend to restore.",
+        variant: "default" 
+      });
+      // Optionally, prevent file input from opening or show a more prominent warning
+      return; 
+    }
     fileInputRef.current?.click();
   };
 
@@ -226,6 +313,13 @@ export default function SettingsPage() {
       toast({ title: "Restore Canceled", description: "No file selected for restore.", variant: "destructive"});
       return;
     }
+    // Ensure only JSON files are processed for restore for now
+    if (!file.name.endsWith('.json')) {
+      toast({ title: "Restore Failed", description: "Only JSON backup files can be restored with this version.", variant: "destructive"});
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -233,22 +327,16 @@ export default function SettingsPage() {
         const jsonString = e.target?.result as string;
         const backupFileContent = JSON.parse(jsonString);
         
-        if (!backupFileContent.data || !backupFileContent.metadata) {
-          toast({ title: "Restore Failed", description: "Invalid backup file structure. Missing metadata or data key.", variant: "destructive"});
+        if (!backupFileContent.data || !backupFileContent.metadata || backupFileContent.metadata.format !== 'json') {
+          toast({ title: "Restore Failed", description: "Invalid or incompatible JSON backup file structure.", variant: "destructive"});
           if (fileInputRef.current) fileInputRef.current.value = "";
           return;
         }
         
-        // Basic check for metadata version if needed in future
-        // if (backupFileContent.metadata.version !== APP_VERSION) { ... }
-
         const restoredData = backupFileContent.data;
         let restoredCount = 0;
         for (const key in restoredData) {
           if (APP_STORAGE_KEYS.includes(key)) {
-            // Ensure data is stringified before storing, as localStorage only takes strings
-            // Booleans and numbers from parsed JSON need to be converted to string.
-            // Objects/Arrays need to be stringified.
             const valueToStore = typeof restoredData[key] === 'object' 
                 ? JSON.stringify(restoredData[key]) 
                 : String(restoredData[key]);
@@ -260,12 +348,10 @@ export default function SettingsPage() {
         if (restoredCount > 0) {
           toast({
             title: "Data Restore Successful",
-            description: `Restored ${restoredCount} data items. Please refresh the application to see all changes.`,
+            description: `Restored ${restoredCount} data items from JSON. Please refresh the application to see all changes.`,
           });
-          // Optionally, trigger a soft reload or state updates
-          // window.location.reload(); // Hard reload might be simplest for a full restore
         } else {
-           toast({ title: "Restore Failed", description: "No relevant application data found in the backup file.", variant: "destructive"});
+           toast({ title: "Restore Failed", description: "No relevant application data found in the JSON backup file.", variant: "destructive"});
         }
 
       } catch (error) {
@@ -411,14 +497,17 @@ export default function SettingsPage() {
               <CardDescription>Options related to data storage and backups. All data is stored locally in your browser.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-                <div className="space-y-0.5">
-                  <Label htmlFor="localBillStorage" className="text-base">Store Data Locally</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Data is currently stored in your browser's local storage. This switch is a conceptual placeholder.
-                  </p>
-                </div>
-                <Switch id="localBillStorage" checked={true} disabled />
+              <div className="space-y-2">
+                <Label htmlFor="backupFormat">Backup File Format</Label>
+                <Select value={backupFormat} onValueChange={(value: "json" | "csv") => setBackupFormat(value)}>
+                  <SelectTrigger id="backupFormat">
+                    <SelectValue placeholder="Select format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="json">JSON (Recommended for restore)</SelectItem>
+                    <SelectItem value="csv">CSV (For viewing in spreadsheets)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
                <div className="flex flex-col sm:flex-row gap-2">
                 <Button variant="outline" onClick={handleBackupData} className="w-full sm:w-auto">
@@ -428,6 +517,9 @@ export default function SettingsPage() {
                     <UploadCloud className="mr-2 h-4 w-4" /> Restore Data from File
                 </Button>
                </div>
+                <p className="text-xs text-muted-foreground pt-1">
+                  Note: CSV backup is for data export/viewing. Only JSON backups are supported for restoring data into the application.
+                </p>
             </CardContent>
           </Card>
         </div>
@@ -464,5 +556,3 @@ export default function SettingsPage() {
   );
 }
     
-
-      
