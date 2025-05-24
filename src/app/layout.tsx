@@ -34,6 +34,7 @@ export default function RootLayout({
 }>) {
   const [dynamicPharmacyName, setDynamicPharmacyName] = React.useState("MediStore");
   const [mounted, setMounted] = React.useState(false);
+  const [isAdmin, setIsAdmin] = React.useState(true); // Simulate admin status, true = admin
 
   React.useEffect(() => {
     setMounted(true);
@@ -54,6 +55,12 @@ export default function RootLayout({
 
       // Set document title dynamically
       document.title = `${storedName || 'MediStore'} Pharmacy Management`;
+      
+      // Simulate fetching admin status (e.g., from localStorage or an auth check)
+      // For now, it's hardcoded with useState, but you can change `isAdmin` default or set it here.
+      // Example: const storedIsAdmin = localStorage.getItem('isAdmin');
+      // if (storedIsAdmin) setIsAdmin(JSON.parse(storedIsAdmin));
+
 
       return () => {
         window.removeEventListener('pharmacyNameUpdated', handleNameUpdate);
@@ -91,12 +98,12 @@ export default function RootLayout({
               </Link>
             </SidebarHeader>
             <SidebarContent className="p-2">
-              <SidebarNav />
+              <SidebarNav isAdmin={isAdmin} />
             </SidebarContent>
             <SidebarFooter className="p-2 border-t">
                <Button variant="ghost" className="w-full justify-start gap-2">
                  <UserCircle className="h-5 w-5" />
-                 <span className="text-sm">Admin User</span>
+                 <span className="text-sm">{isAdmin ? "Admin User" : "Staff User"}</span>
                </Button>
             </SidebarFooter>
           </Sidebar>
@@ -109,12 +116,14 @@ export default function RootLayout({
                  {/* Optionally add a dynamic page title here */}
               </div>
               <div>
-                <Button variant="ghost" size="icon" asChild>
-                  <Link href="/settings">
-                    <Settings className="h-5 w-5" />
-                    <span className="sr-only">Settings</span>
-                  </Link>
-                </Button>
+                {isAdmin && (
+                  <Button variant="ghost" size="icon" asChild>
+                    <Link href="/settings">
+                      <Settings className="h-5 w-5" />
+                      <span className="sr-only">Settings</span>
+                    </Link>
+                  </Button>
+                )}
               </div>
             </header>
             <main className="flex-1 p-4 sm:p-6 md:p-8">

@@ -13,26 +13,32 @@ import {
   TabletSmartphone,
   Settings,
   LogOut,
-  Store, // Added Store icon
+  Store,
 } from 'lucide-react';
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 
-const navItems = [
-  { href: '/', label: 'New Bill', icon: FilePlus2 },
-  { href: '/view-bills', label: 'View Bills', icon: ListOrdered },
-  { href: '/add-stock', label: 'Add Stock', icon: PackagePlus },
-  { href: '/view-stock', label: 'View Stock', icon: PackageSearch },
-  { href: '/reports', label: 'View Reports', icon: LineChart },
-  { href: '/manage-staff', label: 'Manage Staff', icon: Users },
-  { href: '/manage-devices', label: 'Manage Devices', icon: TabletSmartphone },
-  { href: '/pharmacy-profile', label: 'Pharmacy Profile', icon: Store }, // Added Pharmacy Profile link
-  { href: '/settings', label: 'Settings', icon: Settings },
-  { href: '/logout', label: 'Logout', icon: LogOut },
+const allNavItems = [
+  { href: '/', label: 'New Bill', icon: FilePlus2, adminOnly: false },
+  { href: '/view-bills', label: 'View Bills', icon: ListOrdered, adminOnly: false },
+  { href: '/add-stock', label: 'Add Stock', icon: PackagePlus, adminOnly: true },
+  { href: '/view-stock', label: 'View Stock', icon: PackageSearch, adminOnly: false },
+  { href: '/reports', label: 'View Reports', icon: LineChart, adminOnly: true },
+  { href: '/manage-staff', label: 'Manage Staff', icon: Users, adminOnly: true },
+  { href: '/manage-devices', label: 'Manage Devices', icon: TabletSmartphone, adminOnly: true },
+  { href: '/pharmacy-profile', label: 'Pharmacy Profile', icon: Store, adminOnly: true },
+  { href: '/settings', label: 'Settings', icon: Settings, adminOnly: true },
+  { href: '/logout', label: 'Logout', icon: LogOut, adminOnly: false },
 ];
 
-export default function SidebarNav() {
+interface SidebarNavProps {
+  isAdmin: boolean;
+}
+
+export default function SidebarNav({ isAdmin }: SidebarNavProps) {
   const pathname = usePathname();
+
+  const navItems = isAdmin ? allNavItems : allNavItems.filter(item => !item.adminOnly);
 
   return (
     <SidebarMenu>
