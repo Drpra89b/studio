@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Store, LogIn, User, Shield } from "lucide-react";
+import { Store, LogIn, User, Shield, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,8 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { StaffMember } from "@/app/manage-staff/page"; // Import StaffMember type
-// Import STAFF_LIST_STORAGE_KEY. initialSampleStaff is removed, so no longer imported.
-import { STAFF_LIST_STORAGE_KEY } from "@/app/manage-staff/page"; 
+
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,7 +19,9 @@ export default function LoginPage() {
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [role, setRole] = React.useState<"admin" | "staff">("staff");
-  const [pharmacyName, setPharmacyName] = React.useState("MediStore"); // Default pharmacy name
+  const [pharmacyName, setPharmacyName] = React.useState("MediStore");
+  const [isLoadingStaffList, setIsLoadingStaffList] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   React.useEffect(() => {
     const storedPharmacyName = localStorage.getItem('pharmacyName');
@@ -29,39 +30,48 @@ export default function LoginPage() {
     }
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
     if (!username || !password) {
       toast({
         title: "Login Failed",
         description: "Please enter username and password.",
         variant: "destructive",
       });
+      setIsSubmitting(false);
       return;
     }
 
     if (role === "staff") {
-      const storedStaffList = localStorage.getItem(STAFF_LIST_STORAGE_KEY);
-      let staffListToAuthAgainst: StaffMember[] = []; // Start with empty, rely on localStorage
-
-      if (storedStaffList) {
-        try {
-          const parsedList = JSON.parse(storedStaffList);
-          if (Array.isArray(parsedList)) {
-            staffListToAuthAgainst = parsedList;
-          }
-        } catch (error) {
-          console.error("Failed to parse staff list from localStorage", error);
+      setIsLoadingStaffList(true);
+      let staffListToAuthAgainst: StaffMember[] = [];
+      try {
+        const response = await fetch('/api/staff');
+        if (!response.ok) {
+          throw new Error('Failed to fetch staff list for authentication.');
         }
+        staffListToAuthAgainst = await response.json();
+      } catch (error) {
+        console.error("Failed to fetch staff list from API", error);
+        toast({
+          title: "Login Error",
+          description: "Could not verify staff credentials. Please try again later.",
+          variant: "destructive",
+        });
+        setIsLoadingStaffList(false);
+        setIsSubmitting(false);
+        return;
       }
-
-      // If staffListToAuthAgainst is empty after trying localStorage, it means no staff has been created yet by admin.
+      setIsLoadingStaffList(false);
+      
       if (staffListToAuthAgainst.length === 0) {
          toast({
           title: "Login Failed",
           description: "No staff accounts configured. Please contact an administrator.",
           variant: "destructive",
         });
+        setIsSubmitting(false);
         return;
       }
 
@@ -73,6 +83,7 @@ export default function LoginPage() {
           description: "Invalid username or password.",
           variant: "destructive",
         });
+        setIsSubmitting(false);
         return;
       }
 
@@ -82,6 +93,7 @@ export default function LoginPage() {
           description: "Your account is not active. Please contact an administrator.",
           variant: "destructive",
         });
+        setIsSubmitting(false);
         return;
       }
     }
@@ -89,15 +101,14 @@ export default function LoginPage() {
     // If admin or active staff, proceed
     localStorage.setItem("isAdmin", role === "admin" ? "true" : "false");
     localStorage.setItem("isAuthenticated", "true");
-    // Dispatch an event to notify RootLayout about authentication change
     window.dispatchEvent(new CustomEvent('authChanged'));
-
 
     toast({
       title: "Login Successful",
       description: `Welcome, ${username}! You are logged in as ${role}.`,
     });
-    router.push("/");
+    router.push("/"); // Redirect to dashboard or home page
+    // No need to setIsSubmitting(false) here as we are navigating away.
   };
 
   return (
@@ -122,6 +133,7 @@ export default function LoginPage() {
                   onChange={(e) => setUsername(e.target.value)}
                   required
                   className="pl-10"
+                  disabled={isSubmitting || isLoadingStaffList}
                 />
               </div>
             </div>
@@ -137,12 +149,13 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   className="pl-10"
+                  disabled={isSubmitting || isLoadingStaffList}
                 />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="role">Role</Label>
-              <Select value={role} onValueChange={(value: "admin" | "staff") => setRole(value)}>
+              <Select value={role} onValueChange={(value: "admin" | "staff") => setRole(value)} disabled={isSubmitting || isLoadingStaffList}>
                 <SelectTrigger id="role">
                   <SelectValue placeholder="Select your role" />
                 </SelectTrigger>
@@ -154,8 +167,9 @@ export default function LoginPage() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" className="w-full">
-              <LogIn className="mr-2 h-4 w-4" /> Login
+            <Button type="submit" className="w-full" disabled={isSubmitting || isLoadingStaffList}>
+              {(isSubmitting || isLoadingStaffList) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Login
             </Button>
           </CardFooter>
         </form>

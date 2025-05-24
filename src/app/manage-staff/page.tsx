@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 
 import PageHeader from "@/components/shared/page-header";
-import { Users, UserPlus, Edit, UserCheck, UserX, Trash2 } from "lucide-react";
+import { Users, UserPlus, Edit, UserCheck, UserX, Trash2, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -37,68 +37,70 @@ import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 
+// Interface matches the data structure from Firestore via API (id is Firestore doc ID)
 export interface StaffMember {
-  id: string;
+  id: string; // Firestore document ID
   name: string;
   username: string;
   email: string;
   status: "Active" | "Disabled";
 }
 
-// Export initialSampleStaff to be used by login page as fallback - REMOVED
-export const initialSampleStaff: StaffMember[] = [];
-
+// Zod schema for creating staff (matches API, password included for form submission)
 const addStaffFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   username: z.string().min(3, { message: "Username must be at least 3 characters." }).regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores."),
   email: z.string().email({ message: "Please enter a valid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  // Status defaults to 'Active' on the backend if not provided or handled there
 });
 type AddStaffFormValues = z.infer<typeof addStaffFormSchema>;
 
+// Zod schema for editing staff (matches API)
 const editStaffFormSchema = z.object({
-  id: z.string(),
+  id: z.string(), // Keep id for identifying the document
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   username: z.string().min(3, { message: "Username must be at least 3 characters." }).regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores."),
   email: z.string().email({ message: "Please enter a valid email address." }),
+  // Status is updated via handleToggleStaffStatus, not directly in this edit form
 });
 type EditStaffFormValues = z.infer<typeof editStaffFormSchema>;
 
-// Export STAFF_LIST_STORAGE_KEY to be used by login page
-export const STAFF_LIST_STORAGE_KEY = "staffList";
 
 export default function ManageStaffPage() {
   const { toast } = useToast();
-  const [staffList, setStaffList] = React.useState<StaffMember[]>(() => {
-    if (typeof window !== 'undefined') {
-      const storedStaff = localStorage.getItem(STAFF_LIST_STORAGE_KEY);
-      if (storedStaff) {
-        try {
-          const parsedList = JSON.parse(storedStaff);
-          // Ensure it's an array before returning
-          if (Array.isArray(parsedList)) {
-            return parsedList;
-          }
-          console.warn("Stored staff list was not an array, starting with empty list.");
-          return []; // Use empty array if not valid
-        } catch (e) {
-          console.error("Failed to parse staff list from localStorage, starting with empty list.", e);
-          return []; // Use empty array on error
-        }
-      }
-    }
-    return []; // Default to empty array
-  });
+  const [staffList, setStaffList] = React.useState<StaffMember[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const [isAddStaffDialogOpen, setIsAddStaffDialogOpen] = React.useState(false);
   const [isEditStaffDialogOpen, setIsEditStaffDialogOpen] = React.useState(false);
   const [editingStaff, setEditingStaff] = React.useState<StaffMember | null>(null);
 
-  React.useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STAFF_LIST_STORAGE_KEY, JSON.stringify(staffList));
+  const fetchStaff = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/staff');
+      if (!response.ok) {
+        throw new Error('Failed to fetch staff');
+      }
+      const data = await response.json();
+      setStaffList(data as StaffMember[]);
+    } catch (error) {
+      console.error("Failed to fetch staff list:", error);
+      toast({
+        title: "Error Loading Staff",
+        description: (error as Error).message || "Could not load staff list.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
-  }, [staffList]);
+  };
+
+  React.useEffect(() => {
+    fetchStaff();
+  }, []);
 
   const addForm = useForm<AddStaffFormValues>({
     resolver: zodResolver(addStaffFormSchema),
@@ -112,34 +114,43 @@ export default function ManageStaffPage() {
 
   const editForm = useForm<EditStaffFormValues>({
     resolver: zodResolver(editStaffFormSchema),
-    defaultValues: {
-      id: "",
-      name: "",
-      username: "",
-      email: "",
-    },
   });
 
-  function onAddStaffSubmit(data: AddStaffFormValues) {
-    const newStaffMember: StaffMember = {
-      id: `staff-${Date.now()}`,
-      name: data.name,
-      username: data.username,
-      email: data.email,
-      status: "Active", 
-    };
-    setStaffList(prevStaff => [newStaffMember, ...prevStaff]);
-    toast({
-      title: "Staff User Created",
-      description: `${data.name} (Username: ${data.username}) has been added as an active staff member.`,
-    });
-    addForm.reset();
-    setIsAddStaffDialogOpen(false);
+  async function onAddStaffSubmit(data: AddStaffFormValues) {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/staff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({...data, status: "Active"}), // Default status to Active
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create staff member');
+      }
+      const newStaffMember = await response.json();
+      setStaffList(prevStaff => [newStaffMember, ...prevStaff]); // Optimistic update or re-fetch
+      await fetchStaff(); // Re-fetch to ensure consistency
+      toast({
+        title: "Staff User Created",
+        description: `${data.name} (Username: ${data.username}) has been added as an active staff member.`,
+      });
+      addForm.reset();
+      setIsAddStaffDialogOpen(false);
+    } catch (error) {
+      toast({
+        title: "Error Creating Staff",
+        description: (error as Error).message || "Could not create staff member.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const handleEditStaff = (staff: StaffMember) => {
     setEditingStaff(staff);
-    editForm.reset({
+    editForm.reset({ // Set default values for the edit form
       id: staff.id,
       name: staff.name,
       username: staff.username,
@@ -148,53 +159,112 @@ export default function ManageStaffPage() {
     setIsEditStaffDialogOpen(true);
   };
 
-  function onEditStaffSubmit(data: EditStaffFormValues) {
+  async function onEditStaffSubmit(data: EditStaffFormValues) {
     if (!editingStaff) return;
-
-    setStaffList(prevStaffList =>
-      prevStaffList.map(staff =>
-        staff.id === editingStaff.id ? { ...staff, name: data.name, username: data.username, email: data.email } : staff
-      )
-    );
-    toast({
-      title: "Staff User Updated",
-      description: `${data.name}'s details have been updated.`,
-    });
-    setIsEditStaffDialogOpen(false);
-    setEditingStaff(null);
-    editForm.reset();
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`/api/staff/${editingStaff.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: data.name, username: data.username, email: data.email }), // Only send editable fields
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update staff member');
+      }
+      // const updatedStaffMember = await response.json();
+      // setStaffList(prevStaffList =>
+      //   prevStaffList.map(staff =>
+      //     staff.id === updatedStaffMember.id ? updatedStaffMember : staff
+      //   )
+      // );
+      await fetchStaff(); // Re-fetch to ensure consistency
+      toast({
+        title: "Staff User Updated",
+        description: `${data.name}'s details have been updated.`,
+      });
+      setIsEditStaffDialogOpen(false);
+      setEditingStaff(null);
+    } catch (error) {
+      toast({
+        title: "Error Updating Staff",
+        description: (error as Error).message || "Could not update staff member.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
-  const handleToggleStaffStatus = (staffId: string, newStatus: StaffMember['status']) => {
-    setStaffList(prevStaffList =>
-      prevStaffList.map(staff =>
-        staff.id === staffId ? { ...staff, status: newStatus } : staff
-      )
-    );
-
+  const handleToggleStaffStatus = async (staffId: string, newStatus: StaffMember['status']) => {
+    setIsSubmitting(true);
     const staffMemberName = staffList.find(s => s.id === staffId)?.name || "Staff member";
-    let toastMessage = "";
-    if (newStatus === "Active") {
-      toastMessage = `${staffMemberName} has been enabled.`;
-    } else if (newStatus === "Disabled") {
-      toastMessage = `${staffMemberName} has been disabled.`;
+    try {
+      const response = await fetch(`/api/staff/${staffId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update staff status');
+      }
+      // const updatedStaffMember = await response.json();
+      // setStaffList(prevStaffList =>
+      //   prevStaffList.map(staff => (staff.id === updatedStaffMember.id ? updatedStaffMember : staff))
+      // );
+      await fetchStaff(); // Re-fetch to ensure consistency
+      toast({
+        title: "Staff Status Updated",
+        description: `${staffMemberName} has been ${newStatus === "Active" ? "enabled" : "disabled"}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error Updating Status",
+        description: (error as Error).message || "Could not update staff status.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
-    toast({
-      title: "Staff Status Updated",
-      description: toastMessage,
-      variant: newStatus === "Disabled" ? "default" : "default", // Keep variant default for disable
-    });
   };
 
-  const handleDeleteStaff = (staffId: string) => {
-    const staffMember = staffList.find(s => s.id === staffId);
-    setStaffList(prevStaffList => prevStaffList.filter(staff => staff.id !== staffId));
-    toast({
-      title: "Staff User Deleted",
-      description: `Staff member ${staffMember?.name || ''} has been permanently deleted.`,
-      variant: "destructive",
-    });
+  const handleDeleteStaff = async (staffId: string) => {
+    setIsSubmitting(true);
+    const staffMemberName = staffList.find(s => s.id === staffId)?.name || "Staff member";
+    try {
+      const response = await fetch(`/api/staff/${staffId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete staff member');
+      }
+      // setStaffList(prevStaffList => prevStaffList.filter(staff => staff.id !== staffId));
+      await fetchStaff(); // Re-fetch to ensure consistency
+      toast({
+        title: "Staff User Deleted",
+        description: `Staff member ${staffMemberName} has been permanently deleted.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error Deleting Staff",
+        description: (error as Error).message || "Could not delete staff member.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-10rem)]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground">Loading Staff...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -208,7 +278,7 @@ export default function ManageStaffPage() {
           </div>
           <Dialog open={isAddStaffDialogOpen} onOpenChange={setIsAddStaffDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => { addForm.reset(); setIsAddStaffDialogOpen(true); }}>
+              <Button onClick={() => { addForm.reset(); setIsAddStaffDialogOpen(true); }} disabled={isSubmitting}>
                 <UserPlus className="mr-2 h-4 w-4" /> Add New Staff
               </Button>
             </DialogTrigger>
@@ -250,8 +320,11 @@ export default function ManageStaffPage() {
                     </FormItem>
                   )} />
                   <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => { addForm.reset(); setIsAddStaffDialogOpen(false); }}>Cancel</Button>
-                    <Button type="submit">Add Staff</Button>
+                    <Button type="button" variant="outline" onClick={() => { addForm.reset(); setIsAddStaffDialogOpen(false); }} disabled={isSubmitting}>Cancel</Button>
+                    <Button type="submit" disabled={isSubmitting}>
+                      {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Add Staff
+                    </Button>
                   </DialogFooter>
                 </form>
               </Form>
@@ -282,7 +355,7 @@ export default function ManageStaffPage() {
                       <TableCell>
                         <Badge variant={staff.status === "Active" ? "default" : "destructive"}
                           className={cn(
-                            "font-semibold", // Make text bold for better visibility
+                            "font-semibold",
                             staff.status === "Active" && "bg-green-500 hover:bg-green-600 text-white",
                             staff.status === "Disabled" && "bg-slate-500 hover:bg-slate-600 text-white"
                           )}>
@@ -290,22 +363,22 @@ export default function ManageStaffPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center space-x-1 sm:space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => handleEditStaff(staff)} className="min-w-24 sm:min-w-28">
+                        <Button variant="outline" size="sm" onClick={() => handleEditStaff(staff)} className="min-w-24 sm:min-w-28" disabled={isSubmitting}>
                             <Edit className="mr-1 sm:mr-2 h-4 w-4"/> Edit
                         </Button>
                         {staff.status === "Active" && (
-                           <Button variant="outline" size="sm" onClick={() => handleToggleStaffStatus(staff.id, "Disabled")} className="min-w-24 sm:min-w-28 hover:bg-yellow-500 hover:text-white">
+                           <Button variant="outline" size="sm" onClick={() => handleToggleStaffStatus(staff.id, "Disabled")} className="min-w-24 sm:min-w-28 hover:bg-yellow-500 hover:text-white" disabled={isSubmitting}>
                              <UserX className="mr-1 sm:mr-2 h-4 w-4"/> Disable
                            </Button>
                         )}
                         {staff.status === "Disabled" && (
                           <>
-                            <Button variant="outline" size="sm" className="min-w-24 sm:min-w-28 hover:bg-green-500 hover:text-white" onClick={() => handleToggleStaffStatus(staff.id, "Active")}>
+                            <Button variant="outline" size="sm" className="min-w-24 sm:min-w-28 hover:bg-green-500 hover:text-white" onClick={() => handleToggleStaffStatus(staff.id, "Active")} disabled={isSubmitting}>
                               <UserCheck className="mr-1 sm:mr-2 h-4 w-4"/> Enable
                             </Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button variant="destructive" size="sm" className="min-w-24 sm:min-w-28">
+                                <Button variant="destructive" size="sm" className="min-w-24 sm:min-w-28" disabled={isSubmitting}>
                                   <Trash2 className="mr-1 sm:mr-2 h-4 w-4"/> Delete
                                 </Button>
                               </AlertDialogTrigger>
@@ -317,8 +390,9 @@ export default function ManageStaffPage() {
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteStaff(staff.id)}>
+                                  <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteStaff(staff.id)} disabled={isSubmitting}>
+                                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Yes, Delete Staff Member
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
@@ -348,6 +422,7 @@ export default function ManageStaffPage() {
               Update the details for {editingStaff?.name}. Password cannot be changed here.
             </DialogDescription>
           </DialogHeader>
+          {editingStaff && (
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit(onEditStaffSubmit)} className="space-y-4 py-4">
               <FormField control={editForm.control} name="id" render={({ field }) => <Input type="hidden" {...field} />} />
@@ -373,11 +448,15 @@ export default function ManageStaffPage() {
                 </FormItem>
               )} />
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => { setIsEditStaffDialogOpen(false); setEditingStaff(null); }}>Cancel</Button>
-                <Button type="submit">Save Changes</Button>
+                <Button type="button" variant="outline" onClick={() => { setIsEditStaffDialogOpen(false); setEditingStaff(null); }} disabled={isSubmitting}>Cancel</Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
               </DialogFooter>
             </form>
           </Form>
+          )}
         </DialogContent>
       </Dialog>
     </div>
