@@ -8,17 +8,18 @@ import PageHeader from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+// Removed Badge import as it's no longer used for status
+// import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, FileText, Printer, Share2, Home, Phone, Mail, ShieldCheck } from "lucide-react";
-import type { Bill, BillItem } from "../page"; 
-import { getBillById } from "../page"; 
-import { cn } from "@/lib/utils";
+import type { Bill, BillItem } from "../page";
+import { getBillById } from "../page";
+// import { cn } from "@/lib/utils"; // cn no longer needed for status badge
 import { useToast } from "@/hooks/use-toast";
 
 interface PharmacyProfileData {
   pharmacyName: string;
-  invoiceTitle?: string; 
+  invoiceTitle?: string;
   addressStreet: string;
   addressCity: string;
   addressState: string;
@@ -35,7 +36,7 @@ export default function BillDetailPage() {
   const router = useRouter();
   const { toast } = useToast();
   const billId = params.billId as string;
-  const [bill, setBill] = React.useState<Bill | null | undefined>(undefined); 
+  const [bill, setBill] = React.useState<Bill | null | undefined>(undefined);
   const [pharmacyProfile, setPharmacyProfile] = React.useState<PharmacyProfileData | null>(null);
 
   React.useEffect(() => {
@@ -51,7 +52,7 @@ export default function BillDetailPage() {
           setPharmacyProfile(JSON.parse(storedProfile));
         } catch (e) {
           console.error("Failed to parse pharmacy profile from localStorage for bill header", e);
-          setPharmacyProfile(null); // Set to null on error to avoid rendering issues
+          setPharmacyProfile(null);
         }
       }
     }
@@ -60,12 +61,12 @@ export default function BillDetailPage() {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   };
-  
+
   const formatCurrency = (amount: number) => {
     return amount.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
-  if (bill === undefined) { // Initial loading state
+  if (bill === undefined) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)]">
         <FileText className="h-16 w-16 text-muted-foreground animate-pulse mb-4" />
@@ -74,7 +75,7 @@ export default function BillDetailPage() {
     );
   }
 
-  if (!bill) { // Bill not found after attempting to load
+  if (!bill) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)]">
         <PageHeader title="Bill Not Found" description="The requested bill could not be found." icon={FileText} />
@@ -118,7 +119,7 @@ export default function BillDetailPage() {
         await navigator.share(shareData);
         toast({ title: "Bill Shared", description: "The bill link has been shared." });
       } catch (error) {
-        console.error("Web Share API error:", error); 
+        console.error("Web Share API error:", error);
         const domError = error as DOMException;
 
         if (domError && domError.name === 'AbortError') {
@@ -130,12 +131,12 @@ export default function BillDetailPage() {
             variant: "default",
           });
           await copyToClipboardFallback();
-        } 
-        else { 
-          toast({ 
-            title: "Share Error", 
-            description: "Could not share the bill. Copied link to clipboard instead.", 
-            variant: "destructive" 
+        }
+        else {
+          toast({
+            title: "Share Error",
+            description: "Could not share the bill. Copied link to clipboard instead.",
+            variant: "destructive"
           });
           await copyToClipboardFallback();
         }
@@ -196,21 +197,7 @@ export default function BillDetailPage() {
               <CardTitle className="text-xl print:text-lg">{displayedInvoiceTitle} #{bill.billNumber}</CardTitle>
               <CardDescription className="print:text-xs">Date Issued: {formatDate(bill.date)}</CardDescription>
             </div>
-            <Badge
-              variant={
-                bill.status === "Paid" ? "default" :
-                bill.status === "Pending" ? "secondary" :
-                "destructive"
-              }
-              className={cn(
-                "text-sm mt-2 sm:mt-0 px-3 py-1 print:text-xs",
-                bill.status === "Paid" && "bg-green-500 hover:bg-green-600 text-white print:bg-green-500 print:text-white",
-                bill.status === "Pending" && "bg-yellow-500 hover:bg-yellow-600 text-black print:bg-yellow-500 print:text-black",
-                bill.status === "Cancelled" && "bg-red-500 hover:bg-red-500 text-white print:bg-red-500 print:text-white"
-              )}
-            >
-              {bill.status}
-            </Badge>
+            {/* Removed Status Badge */}
           </div>
         </CardHeader>
         <CardContent className="p-6 space-y-6 print:p-0 print:space-y-4">
@@ -224,12 +211,7 @@ export default function BillDetailPage() {
               <h3 className="font-semibold text-foreground mb-1 print:text-sm">Prescribed By:</h3>
               <p className="text-muted-foreground print:text-xs">{bill.doctorName}</p>
             </div>
-            {bill.paymentMethod && (
-              <div>
-                <h3 className="font-semibold text-foreground mb-1 print:text-sm">Payment Method:</h3>
-                <p className="text-muted-foreground print:text-xs">{bill.paymentMethod}</p>
-              </div>
-            )}
+            {/* Removed PaymentMethod display */}
           </div>
 
           <Separator className="print:my-2" />
@@ -273,7 +255,7 @@ export default function BillDetailPage() {
           </div>
 
           <Separator className="print:my-2"/>
-          
+
           <div className="flex justify-end">
             <div className="w-full max-w-xs space-y-1 text-sm print:max-w-none print:w-auto print:ml-auto text-right">
               {bill.isTaxApplied && bill.subTotal !== undefined && bill.totalGstAmount !== undefined && (
@@ -314,4 +296,3 @@ export default function BillDetailPage() {
     </div>
   );
 }
-
