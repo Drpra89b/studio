@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 
 import PageHeader from "@/components/shared/page-header";
-import { Users, QrCode, UserPlus } from "lucide-react";
+import { Users, QrCode, UserPlus, Edit, CheckCircle, XCircle, UserCheck, UserX } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -23,7 +23,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 
@@ -80,6 +79,32 @@ export default function ManageStaffPage() {
     form.reset();
     setIsAddStaffDialogOpen(false);
   }
+
+  const handleToggleStaffStatus = (staffId: string, newStatus: StaffMember['status']) => {
+    setStaffList(prevStaffList =>
+      prevStaffList.map(staff =>
+        staff.id === staffId ? { ...staff, status: newStatus } : staff
+      )
+    );
+
+    let toastMessage = "";
+    const staffMemberName = staffList.find(s => s.id === staffId)?.name || "Staff member";
+
+    if (newStatus === "Active") {
+      toastMessage = `${staffMemberName} has been activated.`;
+    } else if (newStatus === "Disabled") {
+      toastMessage = `${staffMemberName} has been disabled.`;
+    } else { // This case handles "Pending Activation" if ever needed, or other future statuses
+      toastMessage = `${staffMemberName}'s status set to ${newStatus}.`;
+    }
+
+    toast({
+      title: "Staff Status Updated",
+      description: toastMessage,
+      variant: newStatus === "Disabled" ? "destructive" : "default",
+    });
+  };
+
 
   return (
     <div className="space-y-6">
@@ -191,14 +216,28 @@ export default function ManageStaffPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center space-x-2">
-                        <Button variant="outline" size="sm">Edit</Button>
+                        <Button variant="outline" size="sm" onClick={() => toast({ title: "Edit Clicked", description: "Edit functionality placeholder."})}>
+                            <Edit className="mr-2 h-4 w-4"/> Edit
+                        </Button>
                         {staff.status === "Pending Activation" && (
-                           <Button variant="outline" size="sm" className="text-primary border-primary hover:bg-primary/10">
-                            <QrCode className="mr-2 h-4 w-4"/> Activate
+                           <>
+                             <Button variant="outline" size="sm" className="text-primary border-primary hover:bg-primary/10" onClick={() => handleToggleStaffStatus(staff.id, "Active")}>
+                               <QrCode className="mr-2 h-4 w-4"/> Activate
+                             </Button>
+                             <Button variant="destructive" size="sm" onClick={() => handleToggleStaffStatus(staff.id, "Disabled")}>
+                               <UserX className="mr-2 h-4 w-4"/> Disable
+                             </Button>
+                           </>
+                        )}
+                         {staff.status === "Active" && (
+                           <Button variant="destructive" size="sm" onClick={() => handleToggleStaffStatus(staff.id, "Disabled")}>
+                             <UserX className="mr-2 h-4 w-4"/> Disable
                            </Button>
                         )}
-                         {staff.status !== "Disabled" && (
-                           <Button variant="destructive" size="sm">Disable</Button>
+                        {staff.status === "Disabled" && (
+                           <Button variant="default" size="sm" className="bg-green-500 hover:bg-green-600 text-white" onClick={() => handleToggleStaffStatus(staff.id, "Active")}>
+                             <UserCheck className="mr-2 h-4 w-4"/> Enable
+                           </Button>
                         )}
                       </TableCell>
                     </TableRow>
@@ -216,8 +255,8 @@ export default function ManageStaffPage() {
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-2">
           <p>New staff members will be added with a "Pending Activation" status.</p>
-          <p>An Admin can then activate the staff account by generating a QR code from their profile or through an action in the table above.</p>
-          <p className="font-semibold text-foreground">Note: The sign-up form and QR code generation functionality are not implemented in this scaffold.</p>
+          <p>An Admin can then activate the staff account by clicking the "Activate" button in the table above. Disabling or enabling staff is also done via the action buttons.</p>
+          <p className="font-semibold text-foreground">Note: The QR code generation part mentioned below is a conceptual process for future enhancement; the "Activate" button currently changes the status directly.</p>
            <div className="flex items-center justify-center p-6 bg-muted rounded-md mt-4">
             <QrCode className="h-16 w-16 text-muted-foreground/50" />
             <p className="ml-4">QR Code generation and scanning simulation area.</p>
@@ -227,3 +266,4 @@ export default function ManageStaffPage() {
     </div>
   );
 }
+
