@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 
 import PageHeader from "@/components/shared/page-header";
-import { PackageSearch, Search, Filter, Edit3 } from "lucide-react";
+import { PackageSearch, Search, Filter, Edit3, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +24,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
@@ -68,9 +67,20 @@ export default function ViewStockPage() {
   const [isDetailDialogOpen, setIsDetailDialogOpen] = React.useState(false);
   const [editingStockItem, setEditingStockItem] = React.useState<StockItem | null>(null);
 
+  const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
+  const [isLoadingRole, setIsLoadingRole] = React.useState(true);
+
   const detailForm = useForm<StockDetailFormValues>({
     resolver: zodResolver(stockDetailFormSchema),
   });
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const adminStatus = localStorage.getItem('isAdmin');
+      setIsAdmin(adminStatus === 'true');
+    }
+    setIsLoadingRole(false);
+  }, []);
   
   const filteredStock = React.useMemo(() => {
     return stockData
@@ -136,6 +146,15 @@ export default function ViewStockPage() {
     setIsDetailDialogOpen(false);
     setEditingStockItem(null);
   };
+
+  if (isLoadingRole) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-10rem)]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground">Loading Stock Information...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -226,7 +245,13 @@ export default function ViewStockPage() {
                         {getExpiryBadge(item.expiryDate).includes("yellow") && <Badge className="ml-2 text-xs bg-yellow-500 hover:bg-yellow-600 text-black">Expiring Soon</Badge>}
                       </TableCell>
                       <TableCell className="text-center">
-                        <Button variant="outline" size="sm" onClick={() => handleOpenDetailDialog(item)}>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={() => handleOpenDetailDialog(item)}
+                          disabled={isLoadingRole || !isAdmin}
+                          title={!isAdmin ? "Admin access required to edit" : "View/Edit Details"}
+                        >
                           <Edit3 className="mr-2 h-4 w-4" /> Details / Edit
                         </Button>
                       </TableCell>
