@@ -9,9 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-// Removed Badge import as it's no longer used for status
-// import { Badge } from "@/components/ui/badge";
-// import { cn } from "@/lib/utils"; // cn no longer needed for status badge
 
 export interface BillItem {
   id: string;
@@ -39,95 +36,19 @@ export interface Bill {
   gstRateApplied?: number; // The global rate used for this bill, if tax applied
 }
 
-// Sample bills updated to remove status and paymentMethod
-const sampleBills: Bill[] = [
-  {
-    id: "1",
-    billNumber: "BILL-789012",
-    patientName: "Alice Wonderland",
-    patientMobileNumber: "9876543210",
-    doctorName: "Dr. Smith",
-    date: new Date("2024-07-20").toISOString(),
-    items: [
-      { id: "item1", medicationName: "Paracetamol 500mg", quantity: 2, pricePerUnit: 223.44, taxRate: 12, gstAmount: 53.62, totalPrice: 500.50 },
-      { id: "item2", medicationName: "Amoxicillin 250mg", quantity: 1, pricePerUnit: 674.11, taxRate: 12, gstAmount: 80.89, totalPrice: 755.00 },
-    ],
-    subTotal: 897.55,
-    totalGstAmount: 134.63,
-    totalAmount: 1255.50,
-    notes: "Patient requested a digital copy.",
-    isTaxApplied: true,
-    gstRateApplied: 12,
-  },
-  {
-    id: "2",
-    billNumber: "BILL-789013",
-    patientName: "Bob The Builder",
-    patientMobileNumber: "8765432109",
-    doctorName: "Dr. Jones",
-    date: new Date("2024-07-20").toISOString(),
-    items: [
-      { id: "item3", medicationName: "Ibuprofen 200mg", quantity: 3, pricePerUnit: 250.00, totalPrice: 750.00 },
-    ],
-    totalAmount: 750.00,
-    isTaxApplied: false,
-  },
-  {
-    id: "3",
-    billNumber: "BILL-789014",
-    patientName: "Charlie Brown",
-    doctorName: "Dr. Smith",
-    date: new Date("2024-07-19").toISOString(),
-    items: [
-      { id: "item4", medicationName: "Vitamin C Tablets", quantity: 5, pricePerUnit: 90.31, taxRate: 10, gstAmount: 45.16, totalPrice: 500.75 },
-      { id: "item5", medicationName: "Cough Syrup", quantity: 2, pricePerUnit: 730.45, taxRate: 10, gstAmount: 146.09, totalPrice: 1607.00 },
-    ],
-    subTotal: 1911.95,
-    totalGstAmount: 191.25,
-    totalAmount: 2107.75,
-    notes: "Follow up in a week.",
-    isTaxApplied: true,
-    gstRateApplied: 10,
-  },
-  {
-    id: "4",
-    billNumber: "BILL-789015",
-    patientName: "Diana Prince",
-    patientMobileNumber: "7654321098",
-    doctorName: "Dr. Brown",
-    date: new Date("2024-07-19").toISOString(),
-    items: [
-      { id: "item6", medicationName: "Band-Aids (Box)", quantity: 1, pricePerUnit: 552.00, totalPrice: 552.00 },
-    ],
-    totalAmount: 552.00,
-    isTaxApplied: false,
-  },
-  {
-    id: "5",
-    billNumber: "BILL-789016",
-    patientName: "Edward Scissorhands",
-    doctorName: "Dr. Jones",
-    date: new Date("2024-07-18").toISOString(),
-    items: [
-      { id: "item7", medicationName: "Aspirin 75mg", quantity: 10, pricePerUnit: 133.93, taxRate: 12, gstAmount: 16.07*10, totalPrice: 1500.00 },
-    ],
-    subTotal: 1339.30,
-    totalGstAmount: 160.70,
-    totalAmount: 1500.00,
-    isTaxApplied: true,
-    gstRateApplied: 12
-  },
-];
+// Sample bills removed. Data should come from dynamic sources (e.g., New Bill page's TodaysBills or a backend).
+const sampleBills: Bill[] = [];
 
 export const getSampleBills = (): Bill[] => {
-  return sampleBills.map(bill => ({
-    ...bill,
-    subTotal: bill.isTaxApplied ? bill.subTotal : bill.totalAmount,
-    totalGstAmount: bill.isTaxApplied ? bill.totalGstAmount : 0,
-  }));
+  // This function would ideally fetch bills from a backend or a more persistent client-side store.
+  // For now, it returns an empty array as sampleBills is cleared.
+  return sampleBills;
 };
 
 export const getBillById = (id: string): Bill | undefined => {
+    // This function needs to be adapted if bills are no longer in a simple `sampleBills` array.
+    // For now, it will search the empty `sampleBills`.
+    // In a real app, this would fetch from a backend or a more persistent client-side store.
     const bill = sampleBills.find(b => b.id === id);
     if (bill) {
         return {
@@ -145,6 +66,8 @@ export default function ViewBillsPage() {
   const [allBills, setAllBills] = React.useState<Bill[]>([]);
 
   React.useEffect(() => {
+    // In a real app, fetch bills here, e.g., from TodaysBills generated on NewBillPage,
+    // or from a backend. For now, sampleBills is empty.
     setAllBills(getSampleBills());
   }, []);
 
@@ -201,7 +124,6 @@ export default function ViewBillsPage() {
                     <TableHead>Mobile</TableHead>
                     <TableHead>Doctor Name</TableHead>
                     <TableHead>Date</TableHead>
-                    {/* <TableHead>Status</TableHead> Removed Status column */}
                     <TableHead className="text-right">Amount</TableHead>
                     <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
@@ -214,7 +136,6 @@ export default function ViewBillsPage() {
                       <TableCell>{bill.patientMobileNumber || '-'}</TableCell>
                       <TableCell>{bill.doctorName}</TableCell>
                       <TableCell>{formatDate(bill.date)}</TableCell>
-                      {/* Removed Status cell */}
                       <TableCell className="text-right">₹{bill.totalAmount.toFixed(2)}</TableCell>
                       <TableCell className="text-center">
                         <Button variant="outline" size="sm" asChild>

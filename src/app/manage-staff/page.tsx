@@ -45,12 +45,8 @@ export interface StaffMember {
   status: "Active" | "Disabled";
 }
 
-// Export initialSampleStaff to be used by login page as fallback
-export const initialSampleStaff: StaffMember[] = [
-  { id: "1", name: "John Doe", username: "johnd", email: "john.doe@medistore.com", status: "Active" },
-  { id: "2", name: "Jane Smith", username: "janes", email: "jane.smith@medistore.com", status: "Active" },
-  { id: "3", name: "Mike Ross", username: "miker", email: "mike.ross@medistore.com", status: "Disabled" },
-];
+// Export initialSampleStaff to be used by login page as fallback - REMOVED
+export const initialSampleStaff: StaffMember[] = [];
 
 const addStaffFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -83,15 +79,15 @@ export default function ManageStaffPage() {
           if (Array.isArray(parsedList)) {
             return parsedList;
           }
-          console.warn("Stored staff list was not an array, using initial samples.");
-          return initialSampleStaff;
+          console.warn("Stored staff list was not an array, starting with empty list.");
+          return []; // Use empty array if not valid
         } catch (e) {
-          console.error("Failed to parse staff list from localStorage, using initial samples.", e);
-          return initialSampleStaff;
+          console.error("Failed to parse staff list from localStorage, starting with empty list.", e);
+          return []; // Use empty array on error
         }
       }
     }
-    return initialSampleStaff;
+    return []; // Default to empty array
   });
 
   const [isAddStaffDialogOpen, setIsAddStaffDialogOpen] = React.useState(false);

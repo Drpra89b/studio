@@ -37,14 +37,7 @@ interface StockItem {
   lowStockThreshold?: number;
 }
 
-const initialSampleStock: StockItem[] = [
-  { id: "1", name: "Paracetamol 500mg", batch: "P123", quantity: 150, expiryDate: "2025-12-31", lowStockThreshold: 50 },
-  { id: "2", name: "Amoxicillin 250mg", batch: "A098", quantity: 20, expiryDate: "2024-08-15", lowStockThreshold: 30 },
-  { id: "3", name: "Ibuprofen Drops", batch: "I765", quantity: 5, expiryDate: "2024-07-30", lowStockThreshold: 10 },
-  { id: "4", name: "Vitamin C Tablets", batch: "VC001", quantity: 200, expiryDate: "2026-05-01", lowStockThreshold: 100 },
-  { id: "5", name: "Saline Solution", batch: "SLN45", quantity: 8, expiryDate: "2024-09-01", lowStockThreshold: 15 },
-  { id: "6", name: "Aspirin 75mg", batch: "ASP002", quantity: 45, expiryDate: "2025-02-28", lowStockThreshold: 50 },
-];
+const initialSampleStock: StockItem[] = []; // Cleared initial sample stock
 
 const stockDetailFormSchema = z.object({
   id: z.string(),
@@ -78,6 +71,7 @@ export default function ViewStockPage() {
     if (typeof window !== 'undefined') {
       const adminStatus = localStorage.getItem('isAdmin');
       setIsAdmin(adminStatus === 'true');
+      // Here you might load stockData from localStorage or a backend in a real app
     }
     setIsLoadingRole(false);
   }, []);
@@ -332,4 +326,3 @@ export default function ViewStockPage() {
     </div>
   );
 }
-

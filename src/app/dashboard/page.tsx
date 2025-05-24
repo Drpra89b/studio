@@ -11,18 +11,8 @@ import { Bar, Line, ComposedChart, CartesianGrid, XAxis, YAxis, ResponsiveContai
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
-const salesData = [
-  { date: "2024-07-20", salesCount: 5, totalAmount: 3500.75 },
-  { date: "2024-07-21", salesCount: 8, totalAmount: 5250.00 },
-  { date: "2024-07-22", salesCount: 3, totalAmount: 1800.50 },
-  { date: "2024-07-23", salesCount: 10, totalAmount: 7800.25 },
-  { date: "2024-07-24", salesCount: 6, totalAmount: 4200.00 },
-  { date: "2024-07-25", salesCount: 7, totalAmount: 4950.60 },
-  { date: "2024-07-26", salesCount: 4, totalAmount: 2800.00 },
-  { date: "2024-07-27", salesCount: 9, totalAmount: 6300.00 },
-  { date: "2024-07-28", salesCount: 2, totalAmount: 1400.00 },
-  { date: "2024-07-29", salesCount: 11, totalAmount: 8800.50 },
-];
+// Removed sample salesData
+const salesData: { date: string, salesCount: number, totalAmount: number }[] = [];
 
 const chartConfig = {
   totalAmount: {
@@ -51,36 +41,8 @@ interface NotificationItem {
   timestamp: string;
 }
 
-const sampleNotifications: NotificationItem[] = [
-  { 
-    id: "1", 
-    type: "lowStock", 
-    title: "Low Stock: Paracetamol 500mg", 
-    message: "Only 15 units left. Consider reordering.", 
-    timestamp: "2 hours ago" 
-  },
-  { 
-    id: "2", 
-    type: "expiringSoon", 
-    title: "Expiring Soon: Amoxicillin 250mg (Batch A098)", 
-    message: "Expires in 10 days. Current stock: 20 units.", 
-    timestamp: "Yesterday" 
-  },
-  { 
-    id: "3", 
-    type: "info", 
-    title: "System Maintenance Scheduled", 
-    message: "Brief maintenance on Aug 5th, 2 AM - 3 AM.", 
-    timestamp: "3 days ago" 
-  },
-   { 
-    id: "4", 
-    type: "lowStock", 
-    title: "Low Stock: Ibuprofen Drops", 
-    message: "Only 5 units left. Urgent reorder needed.", 
-    timestamp: "Just now" 
-  },
-];
+// Removed sampleNotifications
+const sampleNotifications: NotificationItem[] = [];
 
 export default function DashboardPage() {
   const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
@@ -135,78 +97,83 @@ export default function DashboardPage() {
               <CardTitle>Daily Sales Performance</CardTitle>
               <CardDescription>
                 Showing number of sales and total amount generated per day for the last 10 days. Each bar represents a day's sales count.
+                {salesData.length === 0 && " (No sales data available to display.)"}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
-                <ResponsiveContainer width="100%" height={350}>
-                  <ComposedChart data={salesData} margin={{ top: 20, right: 20, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis
-                      dataKey="date"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                      tickFormatter={(value) => new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                    />
-                    <YAxis
-                      yAxisId="left"
-                      orientation="left"
-                      stroke="var(--color-totalAmount)" 
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                      tickFormatter={(value) => `₹${value / 1000}k`}
-                      domain={['auto', 'auto']}
-                    />
-                    <YAxis
-                      yAxisId="right"
-                      orientation="right"
-                      stroke="var(--color-salesCount)" 
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                      domain={['auto', 'dataMax + 5']}
-                    />
-                    <ChartTooltip
-                      cursor={true}
-                      content={<ChartTooltipContent 
-                        indicator="line" 
-                        labelFormatter={(label, payload) => {
-                          if (payload && payload.length > 0 && payload[0].payload.date) {
-                             return new Date(payload[0].payload.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-                          }
-                          return label;
-                        }}
-                        formatter={(value, name, props) => {
-                          if (name === "totalAmount") {
-                            return [`₹${Number(value).toFixed(2)}`, "Total Amount"];
-                          }
-                          if (name === "salesCount") {
-                            return [value, "Number of Sales"];
-                          }
-                          return [value, name];
-                        }}
-                      />}
-                    />
-                    <ChartLegend content={<ChartLegendContent />} />
-                    <Bar dataKey="salesCount" yAxisId="right" radius={[4, 4, 0, 0]} barSize={30}>
-                      {salesData.map((_entry, index) => (
-                        <Cell key={`cell-${index}`} fill={barColors[index % barColors.length]} />
-                      ))}
-                      <LabelList 
-                        dataKey="totalAmount" 
-                        position="top" 
-                        formatter={formatCurrency} 
-                        fill="hsl(var(--foreground))" 
-                        fontSize={12}
-                        offset={5} 
+              {salesData.length > 0 ? (
+                <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height={350}>
+                    <ComposedChart data={salesData} margin={{ top: 20, right: 20, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis
+                        dataKey="date"
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                        tickFormatter={(value) => new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                       />
-                    </Bar>
-                    <Line type="monotone" dataKey="totalAmount" yAxisId="left" stroke="var(--color-totalAmount)" strokeWidth={2} dot={{ r: 4, fill: "var(--color-totalAmount)" }} activeDot={{r: 6}} />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </ChartContainer>
+                      <YAxis
+                        yAxisId="left"
+                        orientation="left"
+                        stroke="var(--color-totalAmount)" 
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                        tickFormatter={(value) => `₹${value / 1000}k`}
+                        domain={['auto', 'auto']}
+                      />
+                      <YAxis
+                        yAxisId="right"
+                        orientation="right"
+                        stroke="var(--color-salesCount)" 
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                        domain={['auto', 'dataMax + 5']}
+                      />
+                      <ChartTooltip
+                        cursor={true}
+                        content={<ChartTooltipContent 
+                          indicator="line" 
+                          labelFormatter={(label, payload) => {
+                            if (payload && payload.length > 0 && payload[0].payload.date) {
+                               return new Date(payload[0].payload.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+                            }
+                            return label;
+                          }}
+                          formatter={(value, name, props) => {
+                            if (name === "totalAmount") {
+                              return [`₹${Number(value).toFixed(2)}`, "Total Amount"];
+                            }
+                            if (name === "salesCount") {
+                              return [value, "Number of Sales"];
+                            }
+                            return [value, name];
+                          }}
+                        />}
+                      />
+                      <ChartLegend content={<ChartLegendContent />} />
+                      <Bar dataKey="salesCount" yAxisId="right" radius={[4, 4, 0, 0]} barSize={30}>
+                        {salesData.map((_entry, index) => (
+                          <Cell key={`cell-${index}`} fill={barColors[index % barColors.length]} />
+                        ))}
+                        <LabelList 
+                          dataKey="totalAmount" 
+                          position="top" 
+                          formatter={formatCurrency} 
+                          fill="hsl(var(--foreground))" 
+                          fontSize={12}
+                          offset={5} 
+                        />
+                      </Bar>
+                      <Line type="monotone" dataKey="totalAmount" yAxisId="left" stroke="var(--color-totalAmount)" strokeWidth={2} dot={{ r: 4, fill: "var(--color-totalAmount)" }} activeDot={{r: 6}} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-8">No sales data available to display in the chart.</p>
+              )}
             </CardContent>
           </Card>
 
@@ -216,9 +183,10 @@ export default function DashboardPage() {
                 <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary"/>Quick Stats</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <div className="flex justify-between"><span>Total Bills Today:</span> <span className="font-semibold">12</span></div>
-                <div className="flex justify-between"><span>Pending Orders:</span> <span className="font-semibold">3</span></div>
-                <div className="flex justify-between"><span>Low Stock Items:</span> <span className="font-semibold">5</span></div>
+                <div className="flex justify-between"><span>Total Bills Today:</span> <span className="font-semibold">0</span></div>
+                <div className="flex justify-between"><span>Pending Orders:</span> <span className="font-semibold">0</span></div>
+                <div className="flex justify-between"><span>Low Stock Items:</span> <span className="font-semibold">0</span></div>
+                 <p className="text-xs text-muted-foreground pt-1">(These are placeholder values)</p>
               </CardContent>
             </Card>
             <Card>
@@ -226,7 +194,7 @@ export default function DashboardPage() {
                 <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary"/>Recent Activity</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">No recent activity to show. (Placeholder)</p>
+                <p className="text-sm text-muted-foreground">No recent activity to show.</p>
               </CardContent>
             </Card>
             <Card className="lg:col-span-1">
@@ -270,11 +238,11 @@ export default function DashboardPage() {
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
                 <span className="text-sm">Total Bills Generated:</span> 
-                <span className="font-semibold text-lg">23</span> {/* Placeholder */}
+                <span className="font-semibold text-lg">0</span>
               </div>
               <div className="flex items-center justify-between p-3 bg-muted/50 rounded-md">
                 <span className="text-sm">Total Revenue:</span> 
-                <span className="font-semibold text-lg">₹15,780.50</span> {/* Placeholder */}
+                <span className="font-semibold text-lg">₹0.00</span>
               </div>
                <p className="text-xs text-muted-foreground text-center pt-2">(Live data for today's sales is not yet implemented.)</p>
             </CardContent>

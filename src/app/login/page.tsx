@@ -11,7 +11,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { StaffMember } from "@/app/manage-staff/page"; // Import StaffMember type
-import { initialSampleStaff, STAFF_LIST_STORAGE_KEY } from "@/app/manage-staff/page"; // Import initial staff and key
+// Import STAFF_LIST_STORAGE_KEY. initialSampleStaff is removed, so no longer imported.
+import { STAFF_LIST_STORAGE_KEY } from "@/app/manage-staff/page"; 
 
 export default function LoginPage() {
   const router = useRouter();
@@ -41,24 +42,28 @@ export default function LoginPage() {
 
     if (role === "staff") {
       const storedStaffList = localStorage.getItem(STAFF_LIST_STORAGE_KEY);
-      let staffListToAuthAgainst: StaffMember[] = initialSampleStaff; // Default to initial staff
+      let staffListToAuthAgainst: StaffMember[] = []; // Start with empty, rely on localStorage
 
       if (storedStaffList) {
         try {
           const parsedList = JSON.parse(storedStaffList);
-          // Ensure parsedList is an array and not empty before using it
-          if (Array.isArray(parsedList) && parsedList.length > 0) {
+          if (Array.isArray(parsedList)) {
             staffListToAuthAgainst = parsedList;
-          } else if (Array.isArray(parsedList) && parsedList.length === 0 && initialSampleStaff.length > 0) {
-             // If localStorage has an empty list, but initialSampleStaff has users, prefer initial.
-             // This covers a case where localStorage might have been cleared or set to [].
           }
         } catch (error) {
           console.error("Failed to parse staff list from localStorage", error);
-          // Fallback to initialSampleStaff is already handled by default initialization
         }
       }
 
+      // If staffListToAuthAgainst is empty after trying localStorage, it means no staff has been created yet by admin.
+      if (staffListToAuthAgainst.length === 0) {
+         toast({
+          title: "Login Failed",
+          description: "No staff accounts configured. Please contact an administrator.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       const staffMember = staffListToAuthAgainst.find(staff => staff.username === username);
 

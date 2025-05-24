@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -17,12 +18,7 @@ interface Device {
   ipAddress: string;
 }
 
-const sampleDevices: Device[] = [
-  { id: "1", name: "John's iPhone 15", type: "Mobile", lastLogin: "2024-07-21 10:30 AM", ipAddress: "192.168.1.101" },
-  { id: "2", name: "Pharmacy Counter PC", type: "Desktop", lastLogin: "2024-07-21 09:00 AM", ipAddress: "192.168.1.50" },
-  { id: "3", name: "Samsung Galaxy Tab S9", type: "Tablet", lastLogin: "2024-07-20 05:00 PM", ipAddress: "192.168.1.105" },
-  { id: "4", name: "Admin Laptop", type: "Desktop", lastLogin: "2024-07-21 11:00 AM", ipAddress: "192.168.1.22" },
-];
+const sampleDevices: Device[] = []; // Cleared sample devices
 
 
 export default function ManageDevicesPage() {
@@ -54,7 +50,7 @@ export default function ManageDevicesPage() {
         <CardHeader>
           <CardTitle>Logged-in Devices</CardTitle>
           <CardDescription>
-            Monitor devices accessing MediStore. You can revoke access if needed.
+            Monitor devices accessing MediStore. You can revoke access if needed. (This is a conceptual feature).
           </CardDescription>
         </CardHeader>
         <CardContent>
