@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import PageHeader from "@/components/shared/page-header";
-import { Store, Save } from "lucide-react";
+import { Store, Save, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,54 +32,102 @@ const pharmacyProfileFormSchema = z.object({
 
 type PharmacyProfileFormValues = z.infer<typeof pharmacyProfileFormSchema>;
 
-const getPharmacyProfile = (): PharmacyProfileFormValues => {
-  let storedProfile: Partial<PharmacyProfileFormValues> = {};
-  if (typeof window !== 'undefined') {
-    const storedProfileString = localStorage.getItem('pharmacyProfile');
-    if (storedProfileString) {
-      try {
-        storedProfile = JSON.parse(storedProfileString);
-      } catch (e) {
-        console.error("Failed to parse pharmacy profile from localStorage", e);
-      }
-    }
-  }
-  return {
-    pharmacyName: storedProfile.pharmacyName || "MediStore Central Pharmacy",
-    invoiceTitle: storedProfile.invoiceTitle || "MediStore Pharmacy Invoice",
-    addressStreet: storedProfile.addressStreet || "123 Health St, Suite 100",
-    addressCity: storedProfile.addressCity || "Wellnessville",
-    addressState: storedProfile.addressState || "CA",
-    addressZipCode: storedProfile.addressZipCode || "90210",
-    contactNumber: storedProfile.contactNumber || "(555) 123-4567",
-    emailAddress: storedProfile.emailAddress || "contact@medistorecentral.com",
-    licenseNumber: storedProfile.licenseNumber || "PHARM12345X",
-    pharmacistInCharge: storedProfile.pharmacistInCharge || "Dr. Emily Carter",
-    gstin: storedProfile.gstin || "", 
-  };
+const defaultProfileValues: PharmacyProfileFormValues = {
+  pharmacyName: "MediStore Central Pharmacy",
+  invoiceTitle: "MediStore Pharmacy Invoice",
+  addressStreet: "123 Health St, Suite 100",
+  addressCity: "Wellnessville",
+  addressState: "CA",
+  addressZipCode: "90210",
+  contactNumber: "(555) 123-4567",
+  emailAddress: "contact@medistorecentral.com",
+  licenseNumber: "PHARM12345X",
+  pharmacistInCharge: "Dr. Emily Carter",
+  gstin: "",
 };
 
 export default function PharmacyProfilePage() {
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
   const form = useForm<PharmacyProfileFormValues>({
     resolver: zodResolver(pharmacyProfileFormSchema),
-    defaultValues: getPharmacyProfile(),
+    defaultValues: defaultProfileValues, // Start with defaults, then load from API
   });
 
-  const onSubmit = (data: PharmacyProfileFormValues) => {
-    console.log("Pharmacy Profile Data Submitted:", data);
-    
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('pharmacyProfile', JSON.stringify(data));
-      localStorage.setItem('pharmacyName', data.pharmacyName); 
-      window.dispatchEvent(new CustomEvent('pharmacyNameUpdated', { detail: data.pharmacyName }));
-    }
+  React.useEffect(() => {
+    const fetchProfile = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetch('/api/pharmacy-profile');
+        if (!response.ok) {
+          throw new Error('Failed to fetch profile');
+        }
+        const data = await response.json();
+        form.reset(data); // Populate form with fetched data
+      } catch (error) {
+        console.error("Failed to fetch pharmacy profile:", error);
+        toast({
+          title: "Error Loading Profile",
+          description: "Could not load pharmacy profile. Using default values.",
+          variant: "destructive",
+        });
+        form.reset(defaultProfileValues); // Fallback to defaults on error
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchProfile();
+  }, [form, toast]);
 
-    toast({
-      title: "Profile Updated",
-      description: "Pharmacy profile details have been successfully saved.",
-    });
+  const onSubmit = async (data: PharmacyProfileFormValues) => {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/pharmacy-profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update profile');
+      }
+
+      const result = await response.json();
+      console.log("Pharmacy Profile Data Submitted via API:", result.data);
+      
+      toast({
+        title: "Profile Updated",
+        description: "Pharmacy profile details have been successfully saved.",
+      });
+      // Note: Updating the global pharmacy name display (e.g., in the layout)
+      // will require further changes to fetch this from the API or use a global state management.
+      // The 'pharmacyNameUpdated' event and direct localStorage update for 'pharmacyName'
+      // have been removed from here as part of the transition to API-based data management.
+    } catch (error) {
+      console.error("Error saving pharmacy profile:", error);
+      toast({
+        title: "Error Saving Profile",
+        description: (error as Error).message || "Could not save pharmacy profile.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-10rem)]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground">Loading Profile...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -197,8 +245,9 @@ export default function PharmacyProfilePage() {
 
             </CardContent>
             <CardFooter>
-              <Button type="submit" className="ml-auto">
-                <Save className="mr-2 h-4 w-4" /> Save Profile
+              <Button type="submit" className="ml-auto" disabled={isSubmitting || isLoading}>
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                {isSubmitting ? "Saving..." : "Save Profile"}
               </Button>
             </CardFooter>
           </Card>
@@ -207,4 +256,3 @@ export default function PharmacyProfilePage() {
     </div>
   );
 }
-
