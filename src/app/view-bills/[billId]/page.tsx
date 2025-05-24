@@ -83,6 +83,7 @@ export default function BillDetailPage() {
       } catch (error) {
         // AbortError is common if the user cancels the share dialog, so we don't treat it as a full error.
         if ((error as DOMException).name !== 'AbortError') {
+          console.error("Web Share API error:", error); // Added for debugging
           toast({ title: "Share Error", description: "Could not share the bill. Please try again.", variant: "destructive" });
         }
       }
@@ -92,6 +93,7 @@ export default function BillDetailPage() {
         await navigator.clipboard.writeText(shareData.url);
         toast({ title: "Link Copied", description: "Bill link copied to clipboard." });
       } catch (error) {
+        console.error("Clipboard API error:", error); // Added for debugging
         toast({ title: "Copy Error", description: "Could not copy link to clipboard.", variant: "destructive" });
       }
     }
@@ -215,3 +217,4 @@ export default function BillDetailPage() {
     </div>
   );
 }
+
