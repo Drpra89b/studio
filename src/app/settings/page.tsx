@@ -2,9 +2,8 @@
 "use client";
 
 import * as React from "react";
-// Link import is removed as it's no longer used
 import PageHeader from "@/components/shared/page-header";
-import { Settings as SettingsIcon, Printer, FileText, Database, Palette } from "lucide-react"; // UserCog removed
+import { Settings as SettingsIcon, Printer, FileText, Database, Palette, Trash2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -12,17 +11,43 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
+
+const DOCTORS_STORAGE_KEY = "managedDoctorsList";
+const defaultDoctors = ["Dr. Smith", "Dr. Jones", "Dr. Brown (Other)"]; // Renamed Dr. Other
 
 export default function SettingsPage() {
+  const { toast } = useToast();
   const [isDarkMode, setIsDarkMode] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
 
+  const [doctorsList, setDoctorsList] = React.useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      const storedDoctors = localStorage.getItem(DOCTORS_STORAGE_KEY);
+      if (storedDoctors) {
+        try {
+          return JSON.parse(storedDoctors);
+        } catch (e) {
+          console.error("Failed to parse doctors list from localStorage", e);
+        }
+      }
+    }
+    return defaultDoctors;
+  });
+
+  const [newDoctorName, setNewDoctorName] = React.useState("");
+
   React.useEffect(() => {
     setMounted(true);
-    // Initialize dark mode state based on current document class
     const currentThemeIsDark = document.documentElement.classList.contains('dark');
     setIsDarkMode(currentThemeIsDark);
   }, []);
+  
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(DOCTORS_STORAGE_KEY, JSON.stringify(doctorsList));
+    }
+  }, [doctorsList]);
 
   const handleThemeChange = (checked: boolean) => {
     setIsDarkMode(checked);
@@ -32,6 +57,31 @@ export default function SettingsPage() {
       document.documentElement.classList.remove('dark');
     }
   };
+
+  const handleAddDoctor = () => {
+    if (newDoctorName.trim() === "") {
+      toast({ title: "Error", description: "Doctor name cannot be empty.", variant: "destructive" });
+      return;
+    }
+    if (doctorsList.map(doc => doc.toLowerCase()).includes(newDoctorName.trim().toLowerCase())) {
+      toast({ title: "Error", description: `Dr. ${newDoctorName.trim()} already exists in the list.`, variant: "destructive" });
+      return;
+    }
+    setDoctorsList(prevList => [...prevList, `Dr. ${newDoctorName.trim()}`]);
+    toast({ title: "Doctor Added", description: `Dr. ${newDoctorName.trim()} has been added.` });
+    setNewDoctorName("");
+  };
+
+  const handleRemoveDoctor = (doctorNameToRemove: string) => {
+    // Prevent removing default "Other" option if it's a critical part of a workflow
+    if (doctorNameToRemove.toLowerCase().includes("(other)")) {
+        toast({ title: "Action Not Allowed", description: "The 'Other' option cannot be removed.", variant: "destructive" });
+        return;
+    }
+    setDoctorsList(prevList => prevList.filter(doc => doc !== doctorNameToRemove));
+    toast({ title: "Doctor Removed", description: `${doctorNameToRemove} has been removed.` });
+  };
+
 
   if (!mounted) {
     return (
@@ -73,8 +123,6 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
           
-          {/* Staff Permissions Card Removed */}
-
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5 text-primary" /> Doctor Management</CardTitle>
@@ -82,20 +130,40 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="newDoctorName">Add New Doctor</Label>
+                <Label htmlFor="newDoctorNameInput">Add New Doctor (Name only, "Dr." prefix will be added)</Label>
                 <div className="flex gap-2">
-                  <Input id="newDoctorName" placeholder="Enter doctor's full name" />
-                  <Button>Add Doctor</Button>
+                  <Input 
+                    id="newDoctorNameInput" 
+                    placeholder="e.g., Smith" 
+                    value={newDoctorName}
+                    onChange={(e) => setNewDoctorName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleAddDoctor(); }}
+                  />
+                  <Button onClick={handleAddDoctor}>Add Doctor</Button>
                 </div>
               </div>
               <Separator className="my-4" />
               <p className="text-sm font-medium">Current Doctors:</p>
-              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                <li>Dr. Smith (Default)</li>
-                <li>Dr. Jones (Default)</li>
-                {/* Dynamically list added doctors here */}
-              </ul>
-               <p className="text-xs text-muted-foreground pt-2">Note: Doctor list management is a placeholder.</p>
+              {doctorsList.length > 0 ? (
+                <ul className="list-none space-y-2">
+                  {doctorsList.map((doctor, index) => (
+                    <li key={index} className="flex items-center justify-between p-2 border rounded-md bg-muted/50">
+                      <span>{doctor}</span>
+                      {!doctor.toLowerCase().includes("(other)") && ( // Don't allow deleting the "Other" option
+                        <Button variant="ghost" size="icon" onClick={() => handleRemoveDoctor(doctor)} title={`Remove ${doctor}`}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">No doctors added yet.</p>
+              )}
+              <p className="text-xs text-muted-foreground pt-2">
+                Note: This list manages doctors available on the settings page.
+                To use these in "New Bill", further integration is needed.
+              </p>
             </CardContent>
           </Card>
 
@@ -150,4 +218,5 @@ export default function SettingsPage() {
       </div>
     </div>
   );
-}
+
+    
