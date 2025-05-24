@@ -45,7 +45,8 @@ export interface StaffMember {
   status: "Active" | "Disabled";
 }
 
-const initialSampleStaff: StaffMember[] = [
+// Export initialSampleStaff to be used by login page as fallback
+export const initialSampleStaff: StaffMember[] = [
   { id: "1", name: "John Doe", username: "johnd", email: "john.doe@medistore.com", status: "Active" },
   { id: "2", name: "Jane Smith", username: "janes", email: "jane.smith@medistore.com", status: "Active" },
   { id: "3", name: "Mike Ross", username: "miker", email: "mike.ross@medistore.com", status: "Disabled" },
@@ -67,7 +68,8 @@ const editStaffFormSchema = z.object({
 });
 type EditStaffFormValues = z.infer<typeof editStaffFormSchema>;
 
-const STAFF_LIST_STORAGE_KEY = "staffList";
+// Export STAFF_LIST_STORAGE_KEY to be used by login page
+export const STAFF_LIST_STORAGE_KEY = "staffList";
 
 export default function ManageStaffPage() {
   const { toast } = useToast();
@@ -76,9 +78,15 @@ export default function ManageStaffPage() {
       const storedStaff = localStorage.getItem(STAFF_LIST_STORAGE_KEY);
       if (storedStaff) {
         try {
-          return JSON.parse(storedStaff);
+          const parsedList = JSON.parse(storedStaff);
+          // Ensure it's an array before returning
+          if (Array.isArray(parsedList)) {
+            return parsedList;
+          }
+          console.warn("Stored staff list was not an array, using initial samples.");
+          return initialSampleStaff;
         } catch (e) {
-          console.error("Failed to parse staff list from localStorage", e);
+          console.error("Failed to parse staff list from localStorage, using initial samples.", e);
           return initialSampleStaff;
         }
       }
@@ -178,7 +186,7 @@ export default function ManageStaffPage() {
     toast({
       title: "Staff Status Updated",
       description: toastMessage,
-      variant: newStatus === "Disabled" ? "destructive" : "default",
+      variant: newStatus === "Disabled" ? "default" : "default", // Keep variant default for disable
     });
   };
 
@@ -278,30 +286,31 @@ export default function ManageStaffPage() {
                       <TableCell>
                         <Badge variant={staff.status === "Active" ? "default" : "destructive"}
                           className={cn(
+                            "font-semibold", // Make text bold for better visibility
                             staff.status === "Active" && "bg-green-500 hover:bg-green-600 text-white",
                             staff.status === "Disabled" && "bg-slate-500 hover:bg-slate-600 text-white"
                           )}>
                           {staff.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-center space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => handleEditStaff(staff)} className="min-w-28">
-                            <Edit className="mr-2 h-4 w-4"/> Edit
+                      <TableCell className="text-center space-x-1 sm:space-x-2">
+                        <Button variant="outline" size="sm" onClick={() => handleEditStaff(staff)} className="min-w-24 sm:min-w-28">
+                            <Edit className="mr-1 sm:mr-2 h-4 w-4"/> Edit
                         </Button>
                         {staff.status === "Active" && (
-                           <Button variant="destructive" size="sm" onClick={() => handleToggleStaffStatus(staff.id, "Disabled")} className="min-w-28">
-                             <UserX className="mr-2 h-4 w-4"/> Disable
+                           <Button variant="outline" size="sm" onClick={() => handleToggleStaffStatus(staff.id, "Disabled")} className="min-w-24 sm:min-w-28 hover:bg-yellow-500 hover:text-white">
+                             <UserX className="mr-1 sm:mr-2 h-4 w-4"/> Disable
                            </Button>
                         )}
                         {staff.status === "Disabled" && (
                           <>
-                            <Button variant="default" size="sm" className="bg-green-500 hover:bg-green-600 text-white min-w-28" onClick={() => handleToggleStaffStatus(staff.id, "Active")}>
-                              <UserCheck className="mr-2 h-4 w-4"/> Enable
+                            <Button variant="outline" size="sm" className="min-w-24 sm:min-w-28 hover:bg-green-500 hover:text-white" onClick={() => handleToggleStaffStatus(staff.id, "Active")}>
+                              <UserCheck className="mr-1 sm:mr-2 h-4 w-4"/> Enable
                             </Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button variant="destructive" size="sm" className="min-w-28">
-                                  <Trash2 className="mr-2 h-4 w-4"/> Delete
+                                <Button variant="destructive" size="sm" className="min-w-24 sm:min-w-28">
+                                  <Trash2 className="mr-1 sm:mr-2 h-4 w-4"/> Delete
                                 </Button>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
@@ -378,6 +387,3 @@ export default function ManageStaffPage() {
     </div>
   );
 }
-
-
-    

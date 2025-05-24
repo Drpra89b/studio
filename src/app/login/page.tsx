@@ -11,8 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { StaffMember } from "@/app/manage-staff/page"; // Import StaffMember type
-
-const STAFF_LIST_STORAGE_KEY = "staffList"; // Ensure this matches the key in manage-staff
+import { initialSampleStaff, STAFF_LIST_STORAGE_KEY } from "@/app/manage-staff/page"; // Import initial staff and key
 
 export default function LoginPage() {
   const router = useRouter();
@@ -42,22 +41,26 @@ export default function LoginPage() {
 
     if (role === "staff") {
       const storedStaffList = localStorage.getItem(STAFF_LIST_STORAGE_KEY);
-      let staffList: StaffMember[] = [];
+      let staffListToAuthAgainst: StaffMember[] = initialSampleStaff; // Default to initial staff
+
       if (storedStaffList) {
         try {
-          staffList = JSON.parse(storedStaffList);
+          const parsedList = JSON.parse(storedStaffList);
+          // Ensure parsedList is an array and not empty before using it
+          if (Array.isArray(parsedList) && parsedList.length > 0) {
+            staffListToAuthAgainst = parsedList;
+          } else if (Array.isArray(parsedList) && parsedList.length === 0 && initialSampleStaff.length > 0) {
+             // If localStorage has an empty list, but initialSampleStaff has users, prefer initial.
+             // This covers a case where localStorage might have been cleared or set to [].
+          }
         } catch (error) {
           console.error("Failed to parse staff list from localStorage", error);
-          toast({
-            title: "Login Error",
-            description: "Could not verify staff details. Please contact admin.",
-            variant: "destructive",
-          });
-          return;
+          // Fallback to initialSampleStaff is already handled by default initialization
         }
       }
 
-      const staffMember = staffList.find(staff => staff.username === username);
+
+      const staffMember = staffListToAuthAgainst.find(staff => staff.username === username);
 
       if (!staffMember) {
         toast({
@@ -81,6 +84,9 @@ export default function LoginPage() {
     // If admin or active staff, proceed
     localStorage.setItem("isAdmin", role === "admin" ? "true" : "false");
     localStorage.setItem("isAuthenticated", "true");
+    // Dispatch an event to notify RootLayout about authentication change
+    window.dispatchEvent(new CustomEvent('authChanged'));
+
 
     toast({
       title: "Login Successful",
@@ -155,5 +161,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    

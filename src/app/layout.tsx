@@ -29,18 +29,34 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const [dynamicPharmacyName, setDynamicPharmacyName] = React.useState("MediStore");
-  const [isAuthenticated, setIsAuthenticated] = React.useState<boolean | null>(null); // null for loading state
+  const [isAuthenticated, setIsAuthenticated] = React.useState<boolean | null>(null);
   const [isAdmin, setIsAdmin] = React.useState(false);
   const router = useRouter();
   const pathname = usePathname();
+
+  // Function to update auth state, can be called by effect or event
+  const updateAuthState = () => {
+    const authStatus = localStorage.getItem('isAuthenticated');
+    const adminStatus = localStorage.getItem('isAdmin');
+    
+    if (authStatus === 'true') {
+      setIsAuthenticated(true);
+      setIsAdmin(adminStatus === 'true');
+    } else {
+      setIsAuthenticated(false);
+      setIsAdmin(false);
+    }
+  };
 
   React.useEffect(() => {
     const storedName = localStorage.getItem('pharmacyName');
     if (storedName) {
       setDynamicPharmacyName(storedName);
+      document.title = `${storedName} Pharmacy Management`;
+    } else {
+      document.title = `MediStore Pharmacy Management`;
     }
-    document.title = `${storedName || 'MediStore'} Pharmacy Management`;
-
+    
     const handleNameUpdate = (event: Event) => {
       const customEvent = event as CustomEvent<string>;
       if (customEvent.detail) {
@@ -50,31 +66,27 @@ export default function RootLayout({
     };
     window.addEventListener('pharmacyNameUpdated', handleNameUpdate);
 
-    const authStatus = localStorage.getItem('isAuthenticated');
-    const adminStatus = localStorage.getItem('isAdmin');
+    // Initial auth check
+    updateAuthState();
 
-    if (authStatus === 'true') {
-      setIsAuthenticated(true);
-      setIsAdmin(adminStatus === 'true');
-    } else {
-      setIsAuthenticated(false);
-      setIsAdmin(false); // Default to non-admin if not authenticated
-    }
+    // Listen for auth changes (e.g., after login/logout)
+    window.addEventListener('authChanged', updateAuthState);
     
     return () => {
       window.removeEventListener('pharmacyNameUpdated', handleNameUpdate);
+      window.removeEventListener('authChanged', updateAuthState);
     };
-  }, []); // Runs once on mount to check initial auth & pharmacy name
+  }, []);
 
   React.useEffect(() => {
     if (isAuthenticated === false && pathname !== '/login') {
       router.push('/login');
     } else if (isAuthenticated === true && pathname === '/login') {
-      router.push('/'); // Redirect from login to home if already authenticated
+      router.push('/'); 
     }
   }, [isAuthenticated, pathname, router]);
 
-  if (isAuthenticated === null) { // Initial loading state
+  if (isAuthenticated === null) { 
     return (
       <html lang="en">
         <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
@@ -88,11 +100,7 @@ export default function RootLayout({
     );
   }
 
-  // If not authenticated and not on the login page, the effect above will redirect.
-  // Render children only if authenticated or if on the login page.
   if (!isAuthenticated && pathname !== '/login') {
-    // This state should ideally be handled by the redirect,
-    // but as a fallback or during transition, show loading.
      return (
       <html lang="en">
         <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
@@ -106,7 +114,6 @@ export default function RootLayout({
     );
   }
   
-  // Show login page without the main layout if on /login and not authenticated
   if (pathname === '/login' && !isAuthenticated) {
     return (
       <html lang="en">
