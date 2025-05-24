@@ -51,14 +51,14 @@ export default function PharmacyProfilePage() {
     defaultValues: getPharmacyProfile(), // Pre-fill with existing data or defaults
   });
 
-  function onSubmit(data: PharmacyProfileFormValues) {
+  const onSubmit = (data: PharmacyProfileFormValues) => {
     console.log("Pharmacy Profile Data Submitted:", data);
     // In a real app, you would save this data to your backend/database
     toast({
       title: "Profile Updated",
       description: "Pharmacy profile details have been successfully saved.",
     });
-  }
+  };
 
   return (
     <div className="space-y-6">
@@ -163,9 +163,9 @@ export default function PharmacyProfilePage() {
                 <Save className="mr-2 h-4 w-4" /> Save Profile
               </Button>
             </CardFooter>
-          </form>
-        </Form>
-      </Card>
+          </Card>
+        </form>
+      </Form>
     </div>
   );
 }
