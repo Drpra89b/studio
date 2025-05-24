@@ -10,10 +10,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, FileText, Printer, Share2 } from "lucide-react";
+import { ArrowLeft, FileText, Printer, Share2, Home, Phone, Mail, ShieldCheck } from "lucide-react";
 import { Bill, getBillById } from "../page"; // Importing from the parent page for sample data
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+
+// Define a type for the pharmacy profile data we expect from localStorage
+interface PharmacyProfileData {
+  pharmacyName: string;
+  addressStreet: string;
+  addressCity: string;
+  addressState: string;
+  addressZipCode: string;
+  contactNumber: string;
+  emailAddress: string;
+  licenseNumber: string;
+  // pharmacistInCharge might also be in profile but not typically on bill header
+}
 
 
 export default function BillDetailPage() {
@@ -22,11 +35,25 @@ export default function BillDetailPage() {
   const { toast } = useToast();
   const billId = params.billId as string;
   const [bill, setBill] = React.useState<Bill | null | undefined>(undefined); // undefined for loading, null for not found
+  const [pharmacyProfile, setPharmacyProfile] = React.useState<PharmacyProfileData | null>(null);
 
   React.useEffect(() => {
     if (billId) {
       const foundBill = getBillById(billId);
       setBill(foundBill || null);
+    }
+
+    // Load pharmacy profile from localStorage
+    if (typeof window !== 'undefined') {
+      const storedProfile = localStorage.getItem('pharmacyProfile');
+      if (storedProfile) {
+        try {
+          setPharmacyProfile(JSON.parse(storedProfile));
+        } catch (e) {
+          console.error("Failed to parse pharmacy profile from localStorage for bill header", e);
+          setPharmacyProfile(null);
+        }
+      }
     }
   }, [billId]);
 
@@ -95,18 +122,16 @@ export default function BillDetailPage() {
         const domError = error as DOMException;
 
         if (domError && domError.name === 'AbortError') {
-          // User cancelled the share dialog, do nothing or provide a subtle feedback
           toast({ title: "Share Canceled", description: "You cancelled the share action.", variant: "default" });
         } else if (domError && domError.name === 'NotAllowedError') {
           toast({
             title: "Share Permission Denied",
             description: "Could not share due to permissions. Copied link to clipboard instead.",
-            variant: "destructive",
+            variant: "default",
           });
           await copyToClipboardFallback();
         } 
         else { 
-          // For other errors (including other DOMExceptions or generic errors)
           toast({ 
             title: "Share Error", 
             description: "Could not share the bill. Copied link to clipboard instead.", 
@@ -116,7 +141,6 @@ export default function BillDetailPage() {
         }
       }
     } else {
-      // Fallback to copying the link to the clipboard if navigator.share is not supported
       toast({ title: "Share Not Supported", description: "Web Share not supported. Copied link to clipboard."});
       await copyToClipboardFallback();
     }
@@ -141,10 +165,27 @@ export default function BillDetailPage() {
       </div>
 
       <Card className="shadow-lg print:shadow-none print:border-none">
-        <CardHeader className="bg-muted/30 p-6 print:bg-transparent print:px-0 print:pt-0">
+        {pharmacyProfile && (
+          <div className="p-6 print:px-0 print:pt-0 print:pb-4 mb-0 print:mb-2 border-b print:border-b-2 print:border-gray-300">
+            <h2 className="text-2xl font-bold text-center print:text-xl mb-1">{pharmacyProfile.pharmacyName}</h2>
+            <p className="text-xs text-muted-foreground text-center print:text-xs">
+              {pharmacyProfile.addressStreet}, {pharmacyProfile.addressCity}, {pharmacyProfile.addressState} - {pharmacyProfile.addressZipCode}
+            </p>
+            <div className="text-xs text-muted-foreground text-center print:text-xs mt-1 space-x-2">
+              <span><Phone className="inline h-3 w-3 mr-1" />{pharmacyProfile.contactNumber}</span>
+              <span>|</span>
+              <span><Mail className="inline h-3 w-3 mr-1" />{pharmacyProfile.emailAddress}</span>
+            </div>
+            <p className="text-xs text-muted-foreground text-center print:text-xs mt-1">
+              <ShieldCheck className="inline h-3 w-3 mr-1" />License No: {pharmacyProfile.licenseNumber}
+            </p>
+          </div>
+        )}
+
+        <CardHeader className="bg-muted/30 p-6 print:bg-transparent print:px-0 print:pt-2">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
             <div>
-              <CardTitle className="text-2xl print:text-xl">Invoice #{bill.billNumber}</CardTitle>
+              <CardTitle className="text-xl print:text-lg">Invoice #{bill.billNumber}</CardTitle>
               <CardDescription className="print:text-xs">Date Issued: {formatDate(bill.date)}</CardDescription>
             </div>
             <Badge
@@ -233,7 +274,7 @@ export default function BillDetailPage() {
         </CardContent>
         <CardFooter className="p-6 bg-muted/30 border-t print:bg-transparent print:p-0 print:mt-4 print:border-t print:border-gray-300">
             <p className="text-xs text-muted-foreground print:text-center print:w-full">
-                Thank you for choosing MediStore! If you have any questions about this bill, please contact us.
+                Thank you for choosing {pharmacyProfile?.pharmacyName || "MediStore"}! If you have any questions about this bill, please contact us.
             </p>
         </CardFooter>
       </Card>
