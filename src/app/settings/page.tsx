@@ -4,7 +4,7 @@
 import * as React from "react";
 import Link from "next/link";
 import PageHeader from "@/components/shared/page-header";
-import { Settings as SettingsIcon, Printer, FileText, Database, Palette, Trash2, Percent } from "lucide-react";
+import { Settings as SettingsIcon, Printer, FileText, Database, Palette, Trash2, Percent, UploadCloud, DownloadCloud } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -15,21 +15,40 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 
 const DOCTORS_STORAGE_KEY = "managedDoctorsList";
-const defaultDoctors = ["Dr. Smith", "Dr. Jones", "Dr. Other (Manual Entry)"];
+const defaultDoctors = ["Dr. Other (Manual Entry)"]; // Simplified, as New Bill handles adding this
 const IS_TAX_ENABLED_KEY = "isTaxEnabled";
 const DEFAULT_GST_RATE_KEY = "defaultGstRate";
+const PHARMACY_PROFILE_KEY = "pharmacyProfile";
+const STAFF_LIST_KEY = "staffList";
+
+// List of all localStorage keys managed by the app
+const APP_STORAGE_KEYS = [
+  DOCTORS_STORAGE_KEY,
+  IS_TAX_ENABLED_KEY,
+  DEFAULT_GST_RATE_KEY,
+  PHARMACY_PROFILE_KEY,
+  STAFF_LIST_KEY,
+  "pharmacyName", // Also managed via pharmacyProfile, but good to include
+];
+
 
 export default function SettingsPage() {
   const { toast } = useToast();
   const [isDarkMode, setIsDarkMode] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const [doctorsList, setDoctorsList] = React.useState<string[]>(() => {
     if (typeof window !== 'undefined') {
       const storedDoctors = localStorage.getItem(DOCTORS_STORAGE_KEY);
       if (storedDoctors) {
         try {
-          return JSON.parse(storedDoctors);
+          const parsed = JSON.parse(storedDoctors);
+          // Ensure "Dr. Other (Manual Entry)" is always present
+          if (Array.isArray(parsed) && !parsed.includes("Dr. Other (Manual Entry)")) {
+            return ["Dr. Other (Manual Entry)", ...parsed.filter(doc => doc !== "Dr. Other (Manual Entry)")];
+          }
+          return Array.isArray(parsed) ? parsed : defaultDoctors;
         } catch (e) {
           console.error("Failed to parse doctors list from localStorage", e);
         }
@@ -50,7 +69,7 @@ export default function SettingsPage() {
   const [defaultGstRate, setDefaultGstRate] = React.useState<number | string>(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem(DEFAULT_GST_RATE_KEY);
-      return stored ? parseFloat(stored) : 12; // Default to 12% if not set
+      return stored ? parseFloat(stored) : 12;
     }
     return 12;
   });
@@ -95,7 +114,7 @@ export default function SettingsPage() {
       toast({ title: "Error", description: "Doctor name cannot be empty.", variant: "destructive" });
       return;
     }
-    const formattedDoctorName = `Dr. ${newDoctorName.trim()}`;
+    const formattedDoctorName = `Dr. ${newDoctorName.trim().replace(/^Dr\.\s*/i, '')}`;
     if (doctorsList.map(doc => doc.toLowerCase()).includes(formattedDoctorName.toLowerCase())) {
       toast({ title: "Error", description: `${formattedDoctorName} already exists in the list.`, variant: "destructive" });
       return;
@@ -123,14 +142,12 @@ export default function SettingsPage() {
         if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
             setDefaultGstRate(numValue);
         } else if (isNaN(numValue) && value.length <=5) {
-            // Allow typing partial numbers like "1."
             setDefaultGstRate(value);
         }
     }
   };
 
   const handleSaveSettings = () => {
-    // Ensure GST rate is valid before final save logic if needed, currently handled by useEffect
     if (typeof defaultGstRate === 'string' && (defaultGstRate === "" || isNaN(parseFloat(defaultGstRate)))) {
         toast({
             title: "Invalid GST Rate",
@@ -145,6 +162,89 @@ export default function SettingsPage() {
     });
   };
 
+  const handleBackupData = () => {
+    if (typeof window === 'undefined') return;
+    const backupData: Record<string, any> = {};
+    APP_STORAGE_KEYS.forEach(key => {
+      const item = localStorage.getItem(key);
+      if (item !== null) {
+        try {
+          backupData[key] = JSON.parse(item);
+        } catch (e) {
+          // If not JSON, store as string
+          backupData[key] = item;
+        }
+      }
+    });
+
+    const jsonString = JSON.stringify(backupData, null, 2);
+    const blob = new Blob([jsonString], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    a.download = `medistore_backup_${timestamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Data Backup Successful",
+      description: "Your application data has been downloaded as a JSON file.",
+    });
+  };
+
+  const handleRestoreDataClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (typeof window === 'undefined') return;
+    const file = event.target.files?.[0];
+    if (!file) {
+      toast({ title: "Restore Canceled", description: "No file selected for restore.", variant: "destructive"});
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const jsonString = e.target?.result as string;
+        const restoredData = JSON.parse(jsonString);
+        
+        let restoredCount = 0;
+        for (const key in restoredData) {
+          if (APP_STORAGE_KEYS.includes(key) || key === "pharmacyProfile" || key === "staffList" || key === "managedDoctorsList") { // Be more flexible with expected keys
+            localStorage.setItem(key, JSON.stringify(restoredData[key]));
+            restoredCount++;
+          }
+        }
+        
+        if (restoredCount > 0) {
+          toast({
+            title: "Data Restore Successful",
+            description: `Restored ${restoredCount} data items. Please refresh the application to see all changes.`,
+          });
+          // Optionally, trigger a soft reload or state updates
+          // window.location.reload(); // Hard reload might be simplest for a full restore
+        } else {
+           toast({ title: "Restore Failed", description: "No relevant application data found in the backup file.", variant: "destructive"});
+        }
+
+      } catch (error) {
+        console.error("Restore error:", error);
+        toast({ title: "Restore Failed", description: "Invalid backup file format or corrupted data.", variant: "destructive"});
+      } finally {
+        // Reset file input value to allow selecting the same file again if needed
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      }
+    };
+    reader.readAsText(file);
+  };
+
 
   if (!mounted) {
     return (
@@ -157,6 +257,7 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Settings" description="Configure application preferences and options." icon={SettingsIcon} />
+      <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" style={{ display: 'none' }} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
@@ -272,20 +373,26 @@ export default function SettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Database className="h-5 w-5 text-primary" /> Data Management</CardTitle>
-              <CardDescription>Options related to data storage and backups.</CardDescription>
+              <CardDescription>Options related to data storage and backups. All data is stored locally in your browser.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
                 <div className="space-y-0.5">
-                  <Label htmlFor="localBillStorage" className="text-base">Store Bills Locally</Label>
+                  <Label htmlFor="localBillStorage" className="text-base">Store Data Locally</Label>
                   <p className="text-sm text-muted-foreground">
-                    Enable this to keep a local copy of bills on this device.
+                    Data is currently stored in your browser's local storage. This switch is a conceptual placeholder.
                   </p>
                 </div>
-                <Switch id="localBillStorage" />
+                <Switch id="localBillStorage" checked={true} disabled />
               </div>
-               <Button variant="outline">Backup Data</Button>
-               <Button variant="outline" className="ml-2">Restore Data</Button>
+               <div className="flex flex-col sm:flex-row gap-2">
+                <Button variant="outline" onClick={handleBackupData} className="w-full sm:w-auto">
+                    <DownloadCloud className="mr-2 h-4 w-4" /> Backup Data to File
+                </Button>
+                <Button variant="outline" onClick={handleRestoreDataClick} className="w-full sm:w-auto">
+                    <UploadCloud className="mr-2 h-4 w-4" /> Restore Data from File
+                </Button>
+               </div>
             </CardContent>
           </Card>
         </div>
@@ -321,4 +428,6 @@ export default function SettingsPage() {
     </div>
   );
 }
+    
+
     
