@@ -31,6 +31,17 @@ type PharmacyProfileFormValues = z.infer<typeof pharmacyProfileFormSchema>;
 // Placeholder for actual data fetching/saving
 const getPharmacyProfile = (): Partial<PharmacyProfileFormValues> => {
   // In a real app, fetch this from a database or persistent storage
+  // For now, also try to load from localStorage for persistence across sessions
+  if (typeof window !== 'undefined') {
+    const storedProfile = localStorage.getItem('pharmacyProfile');
+    if (storedProfile) {
+      try {
+        return JSON.parse(storedProfile);
+      } catch (e) {
+        console.error("Failed to parse pharmacy profile from localStorage", e);
+      }
+    }
+  }
   return {
     pharmacyName: "MediStore Central Pharmacy",
     addressStreet: "123 Health St, Suite 100",
@@ -48,12 +59,20 @@ export default function PharmacyProfilePage() {
   const { toast } = useToast();
   const form = useForm<PharmacyProfileFormValues>({
     resolver: zodResolver(pharmacyProfileFormSchema),
-    defaultValues: getPharmacyProfile(), // Pre-fill with existing data or defaults
+    defaultValues: getPharmacyProfile(),
   });
 
   const onSubmit = (data: PharmacyProfileFormValues) => {
     console.log("Pharmacy Profile Data Submitted:", data);
     // In a real app, you would save this data to your backend/database
+    
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('pharmacyProfile', JSON.stringify(data));
+      localStorage.setItem('pharmacyName', data.pharmacyName); // Specifically save pharmacyName for quick access by layout
+      // Dispatch a custom event to notify the layout that the pharmacy name has changed
+      window.dispatchEvent(new CustomEvent('pharmacyNameUpdated', { detail: data.pharmacyName }));
+    }
+
     toast({
       title: "Profile Updated",
       description: "Pharmacy profile details have been successfully saved.",

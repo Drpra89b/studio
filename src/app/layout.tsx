@@ -1,5 +1,9 @@
+
+"use client"; // Required for useState and useEffect
+
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
+import * as React from 'react'; // Import React
 import './globals.css';
 import { SidebarProvider, Sidebar, SidebarInset, SidebarTrigger, SidebarHeader, SidebarContent, SidebarFooter } from '@/components/ui/sidebar';
 import SidebarNav from '@/components/layout/sidebar-nav';
@@ -18,25 +22,72 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
-export const metadata: Metadata = {
-  title: 'MediStore Pharmacy Management',
-  description: 'Pharmacy Management Application by MediStore',
-};
+// export const metadata: Metadata = { // Cannot use export metadata in a client component
+//   title: 'MediStore Pharmacy Management',
+//   description: 'Pharmacy Management Application by MediStore',
+// };
 
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const [dynamicPharmacyName, setDynamicPharmacyName] = React.useState("MediStore");
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+    if (typeof window !== 'undefined') {
+      const storedName = localStorage.getItem('pharmacyName');
+      if (storedName) {
+        setDynamicPharmacyName(storedName);
+      }
+
+      // Listen for custom event
+      const handleNameUpdate = (event: Event) => {
+        const customEvent = event as CustomEvent<string>;
+        if (customEvent.detail) {
+            setDynamicPharmacyName(customEvent.detail);
+        }
+      };
+      window.addEventListener('pharmacyNameUpdated', handleNameUpdate);
+
+      // Set document title dynamically
+      document.title = `${storedName || 'MediStore'} Pharmacy Management`;
+
+      return () => {
+        window.removeEventListener('pharmacyNameUpdated', handleNameUpdate);
+      };
+    }
+  }, []);
+
+  if (!mounted) {
+    // To prevent hydration mismatch issues with localStorage access
+    return (
+      <html lang="en">
+        <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+          {/* Basic loader or simplified layout */}
+          <div className="flex items-center justify-center min-h-screen">Loading Application...</div>
+          <Toaster />
+        </body>
+      </html>
+    );
+  }
+
   return (
     <html lang="en">
+      <head>
+        {/* Metadata can be set here if needed, or using next/head in page components for more specific titles */}
+        <title>{`${dynamicPharmacyName} Pharmacy Management`}</title>
+        <meta name="description" content={`Pharmacy Management Application by ${dynamicPharmacyName}`} />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <SidebarProvider defaultOpen>
           <Sidebar className="border-r" collapsible="icon">
             <SidebarHeader className="p-4">
               <Link href="/" className="flex items-center gap-2 text-lg font-semibold text-sidebar-primary">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9.5 14.5 2 2 4-4"/></svg>
-                <span>MediStore</span>
+                <span>{dynamicPharmacyName}</span>
               </Link>
             </SidebarHeader>
             <SidebarContent className="p-2">
