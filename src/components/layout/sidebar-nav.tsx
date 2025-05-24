@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -12,6 +13,7 @@ import {
   TabletSmartphone,
   Settings,
   LogOut,
+  Store, // Added Store icon
 } from 'lucide-react';
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
@@ -24,6 +26,7 @@ const navItems = [
   { href: '/reports', label: 'View Reports', icon: LineChart },
   { href: '/manage-staff', label: 'Manage Staff', icon: Users },
   { href: '/manage-devices', label: 'Manage Devices', icon: TabletSmartphone },
+  { href: '/pharmacy-profile', label: 'Pharmacy Profile', icon: Store }, // Added Pharmacy Profile link
   { href: '/settings', label: 'Settings', icon: Settings },
   { href: '/logout', label: 'Logout', icon: LogOut },
 ];
