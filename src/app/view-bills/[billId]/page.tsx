@@ -69,9 +69,34 @@ export default function BillDetailPage() {
     }
   };
 
-  const handleShare = () => {
-    // Placeholder for share functionality
-    toast({ title: "Share Action", description: "Sharing functionality is not yet implemented."});
+  const handleShare = async () => {
+    if (!bill) return;
+
+    const shareData = {
+      title: `MediStore Bill: ${bill.billNumber}`,
+      text: `View details for bill ${bill.billNumber} issued to ${bill.patientName}.`,
+      url: window.location.href,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        toast({ title: "Bill Shared", description: "The bill link has been shared." });
+      } catch (error) {
+        // User cancelled sharing or an error occurred
+        if ((error as DOMException).name !== 'AbortError') {
+          toast({ title: "Share Error", description: "Could not share the bill. Please try again.", variant: "destructive" });
+        }
+      }
+    } else {
+      // Fallback for browsers that don't support Web Share API
+      try {
+        await navigator.clipboard.writeText(shareData.url);
+        toast({ title: "Link Copied", description: "Bill link copied to clipboard." });
+      } catch (error) {
+        toast({ title: "Copy Error", description: "Could not copy link to clipboard.", variant: "destructive" });
+      }
+    }
   };
 
 
@@ -197,3 +222,4 @@ export default function BillDetailPage() {
     </div>
   );
 }
+
