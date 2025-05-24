@@ -28,12 +28,12 @@ let storedProfileData: PharmacyProfileFormValues | null = {
     addressStreet: "123 Health St, Suite 100",
     addressCity: "Wellnessville",
     addressState: "MH",
-    addressZipCode: "400001",
+    addressZipCode: "400001", // Updated to 6-digit PIN
     contactNumber: "(+91) 9876543210",
     emailAddress: "contact@medistorecentral.com",
     licenseNumber: "PHARM12345X",
     pharmacistInCharge: "Dr. Emily Carter",
-    gstin: "27ABCDE1234F1Z5", // Example GSTIN
+    gstin: "27ABCDE1234F1Z5",
 };
 
 export async function GET(request: NextRequest) {
@@ -41,14 +41,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(storedProfileData);
   }
   // Return a default or empty structure if nothing is stored yet
-  // This default should also comply with the 6-digit PIN for addressZipCode if not empty
   return NextResponse.json({
     pharmacyName: "MediStore (Default API)",
     invoiceTitle: "Invoice",
     addressStreet: "",
     addressCity: "",
     addressState: "",
-    addressZipCode: "", // Kept empty, validation will catch if user tries to submit invalid
+    addressZipCode: "", // Kept empty for default, validation on submit
     contactNumber: "",
     emailAddress: "",
     licenseNumber: "",

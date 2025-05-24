@@ -20,12 +20,12 @@ const pharmacyProfileFormSchema = z.object({
   addressStreet: z.string().min(5, "Street address is required."),
   addressCity: z.string().min(2, "City is required."),
   addressState: z.string().min(2, "State is required."),
-  addressZipCode: z.string().min(5, "Zip code is required.").regex(/^\d{5}(-\d{4})?$/, "Invalid zip code format."),
+  addressZipCode: z.string().min(6, "PIN code must be 6 digits.").max(6, "PIN code must be 6 digits.").regex(/^\d{6}$/, "Invalid PIN code format."),
   contactNumber: z.string().min(10, "Contact number is required.").regex(/^\+?[\d\s-()]{10,}$/, "Invalid phone number format."),
   emailAddress: z.string().email("Invalid email address."),
   licenseNumber: z.string().min(1, "License number is required."),
   pharmacistInCharge: z.string().min(2, "Pharmacist in charge name is required."),
-  gstin: z.string().optional().refine(val => !val || val.length === 15, { // GSTIN is usually 15 characters
+  gstin: z.string().optional().refine(val => !val || val.length === 15, {
     message: "GSTIN must be 15 characters long if provided.",
   }),
 });
@@ -37,9 +37,9 @@ const defaultProfileValues: PharmacyProfileFormValues = {
   invoiceTitle: "MediStore Pharmacy Invoice",
   addressStreet: "123 Health St, Suite 100",
   addressCity: "Wellnessville",
-  addressState: "CA",
-  addressZipCode: "90210",
-  contactNumber: "(555) 123-4567",
+  addressState: "MH", // Default state changed to an Indian state for consistency
+  addressZipCode: "400001", // Default PIN code changed to a 6-digit Indian format
+  contactNumber: "(+91) 9876543210", // Default contact changed for consistency
   emailAddress: "contact@medistorecentral.com",
   licenseNumber: "PHARM12345X",
   pharmacistInCharge: "Dr. Emily Carter",
@@ -53,7 +53,7 @@ export default function PharmacyProfilePage() {
 
   const form = useForm<PharmacyProfileFormValues>({
     resolver: zodResolver(pharmacyProfileFormSchema),
-    defaultValues: defaultProfileValues, // Start with defaults, then load from API
+    defaultValues: defaultProfileValues,
   });
 
   React.useEffect(() => {
@@ -65,7 +65,7 @@ export default function PharmacyProfilePage() {
           throw new Error('Failed to fetch profile');
         }
         const data = await response.json();
-        form.reset(data); // Populate form with fetched data
+        form.reset(data);
       } catch (error) {
         console.error("Failed to fetch pharmacy profile:", error);
         toast({
@@ -73,7 +73,7 @@ export default function PharmacyProfilePage() {
           description: "Could not load pharmacy profile. Using default values.",
           variant: "destructive",
         });
-        form.reset(defaultProfileValues); // Fallback to defaults on error
+        form.reset(defaultProfileValues);
       } finally {
         setIsLoading(false);
       }
@@ -98,16 +98,14 @@ export default function PharmacyProfilePage() {
       }
 
       const result = await response.json();
-      console.log("Pharmacy Profile Data Submitted via API:", result.data);
       
+      localStorage.setItem('pharmacyName', data.pharmacyName); // Save name to localStorage
+      window.dispatchEvent(new CustomEvent('pharmacyNameUpdated', { detail: data.pharmacyName })); // Dispatch event
+
       toast({
         title: "Profile Updated",
         description: "Pharmacy profile details have been successfully saved.",
       });
-      // Note: Updating the global pharmacy name display (e.g., in the layout)
-      // will require further changes to fetch this from the API or use a global state management.
-      // The 'pharmacyNameUpdated' event and direct localStorage update for 'pharmacyName'
-      // have been removed from here as part of the transition to API-based data management.
     } catch (error) {
       console.error("Error saving pharmacy profile:", error);
       toast({
@@ -172,21 +170,21 @@ export default function PharmacyProfilePage() {
                   <FormField control={form.control} name="addressCity" render={({ field }) => (
                     <FormItem>
                       <FormLabel>City *</FormLabel>
-                      <FormControl><Input placeholder="e.g., Anytown" {...field} /></FormControl>
+                      <FormControl><Input placeholder="e.g., Mumbai" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="addressState" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>State / Province *</FormLabel>
-                      <FormControl><Input placeholder="e.g., CA" {...field} /></FormControl>
+                      <FormLabel>State *</FormLabel>
+                      <FormControl><Input placeholder="e.g., MH" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="addressZipCode" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Zip / Postal Code *</FormLabel>
-                      <FormControl><Input placeholder="e.g., 90210" {...field} /></FormControl>
+                      <FormLabel>PIN Code *</FormLabel>
+                      <FormControl><Input placeholder="e.g., 400001" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -200,7 +198,7 @@ export default function PharmacyProfilePage() {
                   <FormField control={form.control} name="contactNumber" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Contact Number *</FormLabel>
-                      <FormControl><Input type="tel" placeholder="e.g., (555) 123-4567" {...field} /></FormControl>
+                      <FormControl><Input type="tel" placeholder="e.g., (+91) 9876543210" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -235,7 +233,7 @@ export default function PharmacyProfilePage() {
                    <FormField control={form.control} name="gstin" render={({ field }) => (
                     <FormItem className="md:col-span-2">
                       <FormLabel>GSTIN (Optional)</FormLabel>
-                      <FormControl><Input placeholder="e.g., 22AAAAA0000A1Z5" {...field} /></FormControl>
+                      <FormControl><Input placeholder="e.g., 27ABCDE1234F1Z5" {...field} /></FormControl>
                       <FormDescription>Your 15-digit Goods and Services Tax Identification Number.</FormDescription>
                       <FormMessage />
                     </FormItem>
