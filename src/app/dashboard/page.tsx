@@ -25,11 +25,11 @@ const salesData = [
 const chartConfig = {
   totalAmount: {
     label: "Total Amount (₹)",
-    color: "hsl(var(--chart-1))", // Primary chart color
+    color: "hsl(var(--chart-4))", // Changed to Yellow
   },
   salesCount: {
     label: "Number of Sales",
-    color: "hsl(var(--chart-2))", // Secondary chart color
+    color: "hsl(var(--chart-3))", // Changed to Dark Blue
   },
 } satisfies ChartConfig;
 
@@ -60,7 +60,7 @@ export default function DashboardPage() {
                 <YAxis
                   yAxisId="left"
                   orientation="left"
-                  stroke="hsl(var(--chart-1))"
+                  stroke="var(--color-totalAmount)" // Uses chartConfig.totalAmount.color
                   tickLine={false}
                   axisLine={false}
                   tickMargin={8}
@@ -70,7 +70,7 @@ export default function DashboardPage() {
                 <YAxis
                   yAxisId="right"
                   orientation="right"
-                  stroke="hsl(var(--chart-2))"
+                  stroke="var(--color-salesCount)" // Uses chartConfig.salesCount.color
                   tickLine={false}
                   axisLine={false}
                   tickMargin={8}
