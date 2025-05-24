@@ -101,7 +101,7 @@ export default function ManageStaffPage() {
       name: data.name,
       username: data.username,
       email: data.email,
-      status: "Active", // New users are directly active
+      status: "Active", 
     };
     setStaffList(prevStaff => [newStaffMember, ...prevStaff]);
     toast({
@@ -264,22 +264,22 @@ export default function ManageStaffPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => handleEditStaff(staff)}>
+                        <Button variant="outline" size="sm" onClick={() => handleEditStaff(staff)} className="min-w-28">
                             <Edit className="mr-2 h-4 w-4"/> Edit
                         </Button>
                         {staff.status === "Active" && (
-                           <Button variant="destructive" size="sm" onClick={() => handleToggleStaffStatus(staff.id, "Disabled")}>
+                           <Button variant="destructive" size="sm" onClick={() => handleToggleStaffStatus(staff.id, "Disabled")} className="min-w-28">
                              <UserX className="mr-2 h-4 w-4"/> Disable
                            </Button>
                         )}
                         {staff.status === "Disabled" && (
                           <>
-                            <Button variant="default" size="sm" className="bg-green-500 hover:bg-green-600 text-white" onClick={() => handleToggleStaffStatus(staff.id, "Active")}>
+                            <Button variant="default" size="sm" className="bg-green-500 hover:bg-green-600 text-white min-w-28" onClick={() => handleToggleStaffStatus(staff.id, "Active")}>
                               <UserCheck className="mr-2 h-4 w-4"/> Enable
                             </Button>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button variant="destructive" size="sm">
+                                <Button variant="destructive" size="sm" className="min-w-28">
                                   <Trash2 className="mr-2 h-4 w-4"/> Delete
                                 </Button>
                               </AlertDialogTrigger>
