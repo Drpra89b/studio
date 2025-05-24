@@ -29,7 +29,7 @@ const billItemSchema = z.object({
 const billFormSchema = z.object({
   patientName: z.string().min(2, { message: "Patient name must be at least 2 characters." }),
   doctorName: z.string().min(2, { message: "Doctor name must be at least 2 characters." }),
-  billDate: z.date({ required_error: "Bill date is required." }),
+  billDate: z.date({ required_error: "Bill date is required." }).optional().or(z.null()),
   items: z.array(billItemSchema).min(1, "At least one medication item is required."),
 });
 
@@ -78,19 +78,22 @@ export default function NewBillPage() {
   const searchInputRef = React.useRef<HTMLInputElement>(null);
 
 
-  React.useEffect(() => {
-    setBillNumber(`BILL-${Date.now().toString().slice(-6)}`);
-  }, [todaysBills]);
-
   const form = useForm<BillFormValues>({
     resolver: zodResolver(billFormSchema),
     defaultValues: {
       patientName: "",
       doctorName: "",
-      billDate: new Date(),
-      items: [], // Items will be populated from currentBillItems on submit
+      billDate: undefined, // Initialize as undefined to prevent hydration mismatch
+      items: [], 
     },
   });
+
+  React.useEffect(() => {
+    // Set initial values on client mount to avoid hydration mismatch
+    form.setValue('billDate', new Date());
+    setBillNumber(`BILL-${Date.now().toString().slice(-6)}`);
+  }, [form]); // form instance is stable, so this runs once on mount
+
 
   const [selectedDoctor, setSelectedDoctor] = React.useState<string>("");
   const [manualDoctorName, setManualDoctorName] = React.useState<string>("");
@@ -125,10 +128,10 @@ export default function NewBillPage() {
 
   const handleMedicationSelect = (medication: SampleMedication) => {
     setSelectedMedication(medication);
-    setMedicationSearchTerm(medication.name); // Show selected name in input
-    setMedicationSearchResults([]); // Hide results
-    setCurrentQuantity(1); // Reset quantity
-    // Optionally focus quantity input here: document.getElementById('itemQuantityInput')?.focus();
+    setMedicationSearchTerm(medication.name); 
+    setMedicationSearchResults([]); 
+    setCurrentQuantity(1); 
+    // document.getElementById('itemQuantityInput')?.focus();
   };
   
   const handleAddItemToBill = () => {
@@ -143,7 +146,7 @@ export default function NewBillPage() {
     }
 
     const newItem: BillItem = {
-      id: `item-${Date.now()}`, // Unique ID for the item in the list
+      id: `item-${Date.now()}`, 
       medicationName: selectedMedication.name,
       quantity: quantityNum,
       pricePerUnit: selectedMedication.pricePerUnit,
@@ -151,7 +154,6 @@ export default function NewBillPage() {
     };
     setCurrentBillItems(prevItems => [...prevItems, newItem]);
 
-    // Reset fields
     setSelectedMedication(null);
     setMedicationSearchTerm("");
     setCurrentQuantity(1);
@@ -178,29 +180,30 @@ export default function NewBillPage() {
       toast({ title: "Error", description: "Please add at least one medication item to the bill.", variant: "destructive" });
       return;
     }
-    // Populate form's items array from currentBillItems for validation and submission
+    
     const itemsForForm = currentBillItems.map(item => ({
       medicationName: item.medicationName,
       quantity: item.quantity,
       pricePerUnit: item.pricePerUnit,
     }));
-    form.setValue("items", itemsForForm); // This will trigger validation if schema requires items
+    form.setValue("items", itemsForForm); 
 
-    // Re-validate the whole form now that items are set
     form.trigger().then(isValid => {
       if (!isValid) {
         toast({ title: "Validation Error", description: "Please check the form for errors.", variant: "destructive"});
         return;
       }
 
+      const finalBillDate = data.billDate || new Date(); // Fallback if date somehow null
+
       const newBill: TodaysBill = {
         id: Date.now().toString(),
         billNumber: billNumber,
         patientName: data.patientName,
         doctorName: data.doctorName,
-        date: data.billDate.toLocaleDateString('en-CA'),
-        totalAmount: grandTotal, // Use the grandTotal from currentBillItems
-        items: currentBillItems, // Store the full BillItem objects
+        date: finalBillDate.toLocaleDateString('en-CA'),
+        totalAmount: grandTotal,
+        items: currentBillItems,
       };
       setTodaysBills(prevBills => [newBill, ...prevBills]);
       toast({
@@ -209,7 +212,7 @@ export default function NewBillPage() {
       });
       
       form.reset({ 
-        billDate: new Date(), 
+        billDate: new Date(), // Set for the next bill
         patientName: "", 
         doctorName: "",
         items: [],
@@ -220,6 +223,8 @@ export default function NewBillPage() {
       setMedicationSearchTerm("");
       setSelectedMedication(null);
       setCurrentQuantity(1);
+      // Generate a new bill number for the next bill
+      setBillNumber(`BILL-${Date.now().toString().slice(-6)}`);
     });
   }
 
@@ -255,7 +260,7 @@ export default function NewBillPage() {
                 <FormField control={form.control} name="billDate" render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel className="mb-1.5">Bill Date *</FormLabel>
-                    <DatePicker date={field.value} setDate={field.onChange} className="h-10" />
+                    <DatePicker date={field.value || undefined} setDate={field.onChange} className="h-10" />
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -307,7 +312,7 @@ export default function NewBillPage() {
                       value={medicationSearchTerm}
                       onChange={(e) => {
                         setMedicationSearchTerm(e.target.value);
-                        setSelectedMedication(null); // Clear selection if user types again
+                        setSelectedMedication(null); 
                       }}
                       className="pl-10"
                     />
