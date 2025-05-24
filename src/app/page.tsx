@@ -55,13 +55,13 @@ interface SampleMedication {
 }
 
 const sampleMedications: SampleMedication[] = [
-  { id: 'med1', name: 'Paracetamol 500mg Tablet', pricePerUnit: 2.50 },
-  { id: 'med2', name: 'Amoxicillin 250mg Capsule', pricePerUnit: 5.75 },
-  { id: 'med3', name: 'Ibuprofen 200mg Syrup', pricePerUnit: 3.00 },
-  { id: 'med4', name: 'Vitamin C Tablets (Chewable)', pricePerUnit: 1.20 },
-  { id: 'med5', name: 'Cough Syrup (Herbal)', pricePerUnit: 8.00 },
-  { id: 'med6', name: 'Aspirin 75mg', pricePerUnit: 1.50 },
-  { id: 'med7', name: 'Omeprazole 20mg', pricePerUnit: 4.00 },
+  { id: 'med1', name: 'Paracetamol 500mg Tablet', pricePerUnit: 25.50 },
+  { id: 'med2', name: 'Amoxicillin 250mg Capsule', pricePerUnit: 50.75 },
+  { id: 'med3', name: 'Ibuprofen 200mg Syrup', pricePerUnit: 30.00 },
+  { id: 'med4', name: 'Vitamin C Tablets (Chewable)', pricePerUnit: 12.00 },
+  { id: 'med5', name: 'Cough Syrup (Herbal)', pricePerUnit: 80.00 },
+  { id: 'med6', name: 'Aspirin 75mg', pricePerUnit: 15.00 },
+  { id: 'med7', name: 'Omeprazole 20mg', pricePerUnit: 40.00 },
 ];
 
 
@@ -208,7 +208,7 @@ export default function NewBillPage() {
       setTodaysBills(prevBills => [newBill, ...prevBills]);
       toast({
         title: "Bill Created",
-        description: `Bill ${billNumber} for ${data.patientName} has been generated. Amount: $${grandTotal.toFixed(2)}`,
+        description: `Bill ${billNumber} for ${data.patientName} has been generated. Amount: ₹${grandTotal.toFixed(2)}`,
       });
       
       form.reset({ 
@@ -330,7 +330,7 @@ export default function NewBillPage() {
                           className="p-2 hover:bg-accent cursor-pointer"
                           onClick={() => handleMedicationSelect(med)}
                         >
-                          {med.name} (${med.pricePerUnit.toFixed(2)})
+                          {med.name} (₹{med.pricePerUnit.toFixed(2)})
                         </div>
                       ))}
                     </div>
@@ -377,8 +377,8 @@ export default function NewBillPage() {
                           <TableRow key={item.id}>
                             <TableCell>{item.medicationName}</TableCell>
                             <TableCell className="text-center">{item.quantity}</TableCell>
-                            <TableCell className="text-right">${item.pricePerUnit.toFixed(2)}</TableCell>
-                            <TableCell className="text-right">${item.totalPrice.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">₹{item.pricePerUnit.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">₹{item.totalPrice.toFixed(2)}</TableCell>
                             <TableCell className="text-center">
                               <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveItemFromBill(item.id)} className="h-8 w-8">
                                 <Trash2 className="h-4 w-4 text-destructive" />
@@ -391,7 +391,7 @@ export default function NewBillPage() {
                   </div>
                   <div className="mt-4 pt-4 border-t flex justify-end">
                     <div className="text-lg font-semibold">
-                      Grand Total: ${grandTotal.toFixed(2)}
+                      Grand Total: ₹{grandTotal.toFixed(2)}
                     </div>
                   </div>
                 </div>
@@ -434,7 +434,7 @@ export default function NewBillPage() {
                       <TableCell>{bill.patientName}</TableCell>
                       <TableCell>{bill.doctorName}</TableCell>
                       <TableCell>{bill.date}</TableCell>
-                      <TableCell className="text-right">${bill.totalAmount.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">₹{bill.totalAmount.toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

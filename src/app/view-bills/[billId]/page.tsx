@@ -35,7 +35,7 @@ export default function BillDetailPage() {
   };
   
   const formatCurrency = (amount: number) => {
-    return amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+    return amount.toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
   };
 
   if (bill === undefined) {

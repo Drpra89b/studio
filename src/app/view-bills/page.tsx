@@ -40,11 +40,11 @@ const sampleBills: Bill[] = [
     patientName: "Alice Wonderland",
     doctorName: "Dr. Smith",
     date: new Date("2024-07-20").toISOString(),
-    totalAmount: 125.50,
+    totalAmount: 1255.50,
     status: "Paid",
     items: [
-      { id: "item1", medicationName: "Paracetamol 500mg", quantity: 2, pricePerUnit: 25.25, totalPrice: 50.50 },
-      { id: "item2", medicationName: "Amoxicillin 250mg", quantity: 1, pricePerUnit: 75.00, totalPrice: 75.00 },
+      { id: "item1", medicationName: "Paracetamol 500mg", quantity: 2, pricePerUnit: 250.25, totalPrice: 500.50 },
+      { id: "item2", medicationName: "Amoxicillin 250mg", quantity: 1, pricePerUnit: 755.00, totalPrice: 755.00 },
     ],
     paymentMethod: "Credit Card",
     notes: "Patient requested a digital copy."
@@ -55,10 +55,10 @@ const sampleBills: Bill[] = [
     patientName: "Bob The Builder",
     doctorName: "Dr. Jones",
     date: new Date("2024-07-20").toISOString(),
-    totalAmount: 75.00,
+    totalAmount: 750.00,
     status: "Pending",
     items: [
-      { id: "item3", medicationName: "Ibuprofen 200mg", quantity: 3, pricePerUnit: 25.00, totalPrice: 75.00 },
+      { id: "item3", medicationName: "Ibuprofen 200mg", quantity: 3, pricePerUnit: 250.00, totalPrice: 750.00 },
     ],
     paymentMethod: "Cash",
   },
@@ -68,11 +68,11 @@ const sampleBills: Bill[] = [
     patientName: "Charlie Brown",
     doctorName: "Dr. Smith",
     date: new Date("2024-07-19").toISOString(),
-    totalAmount: 210.75,
+    totalAmount: 2107.75,
     status: "Paid",
     items: [
-      { id: "item4", medicationName: "Vitamin C Tablets", quantity: 5, pricePerUnit: 10.15, totalPrice: 50.75 },
-      { id: "item5", medicationName: "Cough Syrup", quantity: 2, pricePerUnit: 80.00, totalPrice: 160.00 },
+      { id: "item4", medicationName: "Vitamin C Tablets", quantity: 5, pricePerUnit: 100.15, totalPrice: 500.75 },
+      { id: "item5", medicationName: "Cough Syrup", quantity: 2, pricePerUnit: 803.50, totalPrice: 1607.00 },
     ],
     notes: "Follow up in a week."
   },
@@ -82,10 +82,10 @@ const sampleBills: Bill[] = [
     patientName: "Diana Prince",
     doctorName: "Dr. Brown",
     date: new Date("2024-07-19").toISOString(),
-    totalAmount: 55.20,
+    totalAmount: 552.00,
     status: "Cancelled",
     items: [
-      { id: "item6", medicationName: "Band-Aids (Box)", quantity: 1, pricePerUnit: 55.20, totalPrice: 55.20 },
+      { id: "item6", medicationName: "Band-Aids (Box)", quantity: 1, pricePerUnit: 552.00, totalPrice: 552.00 },
     ],
   },
   {
@@ -94,10 +94,10 @@ const sampleBills: Bill[] = [
     patientName: "Edward Scissorhands",
     doctorName: "Dr. Jones",
     date: new Date("2024-07-18").toISOString(),
-    totalAmount: 150.00,
+    totalAmount: 1500.00,
     status: "Paid",
     items: [
-      { id: "item7", medicationName: "Aspirin 75mg", quantity: 10, pricePerUnit: 15.00, totalPrice: 150.00 },
+      { id: "item7", medicationName: "Aspirin 75mg", quantity: 10, pricePerUnit: 150.00, totalPrice: 1500.00 },
     ],
     paymentMethod: "Insurance",
   },
@@ -125,9 +125,6 @@ export default function ViewBillsPage() {
   };
 
   const formatDate = (dateString: string) => {
-    // Use 'en-CA' for YYYY-MM-DD to be consistent with how it's saved in NewBillPage if it were a proper date
-    // However, NewBillPage saves it as toLocaleDateString() which is locale-dependent.
-    // For consistency in display, it's best to parse and reformat.
     return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
@@ -193,7 +190,7 @@ export default function ViewBillsPage() {
                           {bill.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">${bill.totalAmount.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">₹{bill.totalAmount.toFixed(2)}</TableCell>
                       <TableCell className="text-center">
                         <Button variant="outline" size="sm" asChild>
                           <Link href={`/view-bills/${bill.id}`}>
