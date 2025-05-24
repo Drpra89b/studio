@@ -5,7 +5,6 @@ import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import Image from 'next/image'; // Kept for potential future use, but QR dialog is removed
 
 import PageHeader from "@/components/shared/page-header";
 import { Users, UserPlus, Edit, UserCheck, UserX } from "lucide-react";
@@ -32,8 +31,7 @@ interface StaffMember {
   name: string;
   username: string;
   email: string;
-  status: "Active" | "Disabled"; // Removed "Pending Activation"
-  // Role is implicitly "Staff" for users created here
+  status: "Active" | "Disabled";
 }
 
 const initialSampleStaff: StaffMember[] = [
@@ -48,15 +46,25 @@ const addStaffFormSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
 });
-
 type AddStaffFormValues = z.infer<typeof addStaffFormSchema>;
+
+const editStaffFormSchema = z.object({
+  id: z.string(), // To identify which staff member is being edited
+  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
+  username: z.string().min(3, { message: "Username must be at least 3 characters." }),
+  email: z.string().email({ message: "Please enter a valid email address." }),
+});
+type EditStaffFormValues = z.infer<typeof editStaffFormSchema>;
+
 
 export default function ManageStaffPage() {
   const { toast } = useToast();
   const [staffList, setStaffList] = React.useState<StaffMember[]>(initialSampleStaff);
   const [isAddStaffDialogOpen, setIsAddStaffDialogOpen] = React.useState(false);
+  const [isEditStaffDialogOpen, setIsEditStaffDialogOpen] = React.useState(false);
+  const [editingStaff, setEditingStaff] = React.useState<StaffMember | null>(null);
 
-  const form = useForm<AddStaffFormValues>({
+  const addForm = useForm<AddStaffFormValues>({
     resolver: zodResolver(addStaffFormSchema),
     defaultValues: {
       name: "",
@@ -66,22 +74,61 @@ export default function ManageStaffPage() {
     },
   });
 
+  const editForm = useForm<EditStaffFormValues>({
+    resolver: zodResolver(editStaffFormSchema),
+    defaultValues: {
+      id: "",
+      name: "",
+      username: "",
+      email: "",
+    },
+  });
+
   function onAddStaffSubmit(data: AddStaffFormValues) {
     const newStaffMember: StaffMember = {
       id: `staff-${Date.now()}`,
       name: data.name,
       username: data.username,
       email: data.email,
-      status: "Active", // New users are active by default
+      status: "Active",
     };
     setStaffList(prevStaff => [newStaffMember, ...prevStaff]);
     toast({
       title: "Staff User Created",
       description: `${data.name} (Username: ${data.username}) has been added as an active staff member.`,
     });
-    form.reset();
+    addForm.reset();
     setIsAddStaffDialogOpen(false);
   }
+
+  const handleEditStaff = (staff: StaffMember) => {
+    setEditingStaff(staff);
+    editForm.reset({ // Populate the form with existing staff data
+      id: staff.id,
+      name: staff.name,
+      username: staff.username,
+      email: staff.email,
+    });
+    setIsEditStaffDialogOpen(true);
+  };
+
+  function onEditStaffSubmit(data: EditStaffFormValues) {
+    if (!editingStaff) return;
+
+    setStaffList(prevStaffList =>
+      prevStaffList.map(staff =>
+        staff.id === editingStaff.id ? { ...staff, ...data } : staff
+      )
+    );
+    toast({
+      title: "Staff User Updated",
+      description: `${data.name}'s details have been updated.`,
+    });
+    setIsEditStaffDialogOpen(false);
+    setEditingStaff(null);
+    editForm.reset();
+  }
+
 
   const handleToggleStaffStatus = (staffId: string, newStatus: StaffMember['status']) => {
     setStaffList(prevStaffList =>
@@ -119,7 +166,7 @@ export default function ManageStaffPage() {
           </div>
           <Dialog open={isAddStaffDialogOpen} onOpenChange={setIsAddStaffDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => setIsAddStaffDialogOpen(true)}>
+              <Button onClick={() => { addForm.reset(); setIsAddStaffDialogOpen(true); }}>
                 <UserPlus className="mr-2 h-4 w-4" /> Add New Staff
               </Button>
             </DialogTrigger>
@@ -130,10 +177,10 @@ export default function ManageStaffPage() {
                   Enter the details for the new staff member. Their account will be created as 'Active'.
                 </DialogDescription>
               </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onAddStaffSubmit)} className="space-y-4 py-4">
+              <Form {...addForm}>
+                <form onSubmit={addForm.handleSubmit(onAddStaffSubmit)} className="space-y-4 py-4">
                   <FormField
-                    control={form.control}
+                    control={addForm.control}
                     name="name"
                     render={({ field }) => (
                       <FormItem>
@@ -146,7 +193,7 @@ export default function ManageStaffPage() {
                     )}
                   />
                   <FormField
-                    control={form.control}
+                    control={addForm.control}
                     name="username"
                     render={({ field }) => (
                       <FormItem>
@@ -159,7 +206,7 @@ export default function ManageStaffPage() {
                     )}
                   />
                   <FormField
-                    control={form.control}
+                    control={addForm.control}
                     name="email"
                     render={({ field }) => (
                       <FormItem>
@@ -172,7 +219,7 @@ export default function ManageStaffPage() {
                     )}
                   />
                   <FormField
-                    control={form.control}
+                    control={addForm.control}
                     name="password"
                     render={({ field }) => (
                       <FormItem>
@@ -185,7 +232,7 @@ export default function ManageStaffPage() {
                     )}
                   />
                   <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => { form.reset(); setIsAddStaffDialogOpen(false); }}>Cancel</Button>
+                    <Button type="button" variant="outline" onClick={() => { addForm.reset(); setIsAddStaffDialogOpen(false); }}>Cancel</Button>
                     <Button type="submit">Add Staff</Button>
                   </DialogFooter>
                 </form>
@@ -227,7 +274,7 @@ export default function ManageStaffPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => toast({ title: "Edit Clicked", description: "Edit functionality placeholder."})}>
+                        <Button variant="outline" size="sm" onClick={() => handleEditStaff(staff)}>
                             <Edit className="mr-2 h-4 w-4"/> Edit
                         </Button>
                          {staff.status === "Active" && (
@@ -249,6 +296,74 @@ export default function ManageStaffPage() {
            )}
         </CardContent>
       </Card>
+
+      {/* Edit Staff Dialog */}
+      <Dialog open={isEditStaffDialogOpen} onOpenChange={(isOpen) => {
+          setIsEditStaffDialogOpen(isOpen);
+          if (!isOpen) setEditingStaff(null); // Reset editingStaff when dialog closes
+        }}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Staff Member</DialogTitle>
+            <DialogDescription>
+              Update the details for {editingStaff?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditStaffSubmit)} className="space-y-4 py-4">
+              {/* Hidden field for ID, not strictly necessary if editingStaff holds it but good for form structure */}
+              <FormField control={editForm.control} name="id" render={({ field }) => <Input type="hidden" {...field} />} />
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Full Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., John Doe" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Username</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., johndoe" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email Address</FormLabel>
+                    <FormControl>
+                      <Input type="email" placeholder="e.g., user@example.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => { setIsEditStaffDialogOpen(false); setEditingStaff(null); }}>Cancel</Button>
+                <Button type="submit">Save Changes</Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
+
+
+    
