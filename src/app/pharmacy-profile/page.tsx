@@ -10,7 +10,7 @@ import { Store, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
 
@@ -32,29 +32,30 @@ const pharmacyProfileFormSchema = z.object({
 
 type PharmacyProfileFormValues = z.infer<typeof pharmacyProfileFormSchema>;
 
-const getPharmacyProfile = (): Partial<PharmacyProfileFormValues> => {
+const getPharmacyProfile = (): PharmacyProfileFormValues => {
+  let storedProfile: Partial<PharmacyProfileFormValues> = {};
   if (typeof window !== 'undefined') {
-    const storedProfile = localStorage.getItem('pharmacyProfile');
-    if (storedProfile) {
+    const storedProfileString = localStorage.getItem('pharmacyProfile');
+    if (storedProfileString) {
       try {
-        return JSON.parse(storedProfile);
+        storedProfile = JSON.parse(storedProfileString);
       } catch (e) {
         console.error("Failed to parse pharmacy profile from localStorage", e);
       }
     }
   }
   return {
-    pharmacyName: "MediStore Central Pharmacy",
-    invoiceTitle: "MediStore Pharmacy Invoice",
-    addressStreet: "123 Health St, Suite 100",
-    addressCity: "Wellnessville",
-    addressState: "CA",
-    addressZipCode: "90210",
-    contactNumber: "(555) 123-4567",
-    emailAddress: "contact@medistorecentral.com",
-    licenseNumber: "PHARM12345X",
-    pharmacistInCharge: "Dr. Emily Carter",
-    gstin: "", // Default to empty
+    pharmacyName: storedProfile.pharmacyName || "MediStore Central Pharmacy",
+    invoiceTitle: storedProfile.invoiceTitle || "MediStore Pharmacy Invoice",
+    addressStreet: storedProfile.addressStreet || "123 Health St, Suite 100",
+    addressCity: storedProfile.addressCity || "Wellnessville",
+    addressState: storedProfile.addressState || "CA",
+    addressZipCode: storedProfile.addressZipCode || "90210",
+    contactNumber: storedProfile.contactNumber || "(555) 123-4567",
+    emailAddress: storedProfile.emailAddress || "contact@medistorecentral.com",
+    licenseNumber: storedProfile.licenseNumber || "PHARM12345X",
+    pharmacistInCharge: storedProfile.pharmacistInCharge || "Dr. Emily Carter",
+    gstin: storedProfile.gstin || "", 
   };
 };
 
