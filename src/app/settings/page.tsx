@@ -4,7 +4,7 @@
 import * as React from "react";
 import Link from "next/link"; // Added Link import
 import PageHeader from "@/components/shared/page-header";
-import { Settings as SettingsIcon, Printer, FileText, Users, Database, Palette, UsersCog } from "lucide-react";
+import { Settings as SettingsIcon, Printer, FileText, Users, Database, Palette, UserCog } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -20,7 +20,8 @@ export default function SettingsPage() {
   React.useEffect(() => {
     setMounted(true);
     // Initialize dark mode state based on current document class
-    setIsDarkMode(document.documentElement.classList.contains('dark'));
+    const currentThemeIsDark = document.documentElement.classList.contains('dark');
+    setIsDarkMode(currentThemeIsDark);
   }, []);
 
   const handleThemeChange = (checked: boolean) => {
@@ -33,7 +34,14 @@ export default function SettingsPage() {
   };
 
   if (!mounted) {
-    return null; 
+    // Render nothing or a placeholder until the component is mounted
+    // This helps avoid hydration mismatches related to localStorage/document access
+    return (
+      <div className="space-y-6">
+         <PageHeader title="Settings" description="Configure application preferences and options." icon={SettingsIcon} />
+         {/* You can add skeletons here if preferred */}
+      </div>
+    );
   }
 
   return (
@@ -70,7 +78,7 @@ export default function SettingsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><UsersCog className="h-5 w-5 text-primary" /> Staff Permissions</CardTitle>
+              <CardTitle className="flex items-center gap-2"><UserCog className="h-5 w-5 text-primary" /> Staff Permissions</CardTitle>
               <CardDescription>Manage default roles and permissions for staff members.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

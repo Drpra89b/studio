@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { UsersCog, ArrowLeft } from "lucide-react";
+import { UserCog, ArrowLeft } from "lucide-react"; // Corrected from UsersCog
 import PageHeader from "@/components/shared/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ export default function RolesPermissionsPage() {
       <PageHeader
         title="Manage Roles & Permissions"
         description="Define and assign roles and permissions to staff members."
-        icon={UsersCog}
+        icon={UserCog} // Corrected from UsersCog
       />
 
       <Card>
