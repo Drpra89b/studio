@@ -7,7 +7,7 @@ import PageHeader from "@/components/shared/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ChartConfig } from "@/components/ui/chart";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
-import { Bar, Line, ComposedChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Cell } from "recharts";
+import { Bar, Line, ComposedChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Cell, LabelList } from "recharts";
 
 const salesData = [
   { date: "2024-07-20", salesCount: 5, totalAmount: 3500.75 },
@@ -44,6 +44,8 @@ const barColors = [
 
 
 export default function DashboardPage() {
+  const formatCurrency = (value: number) => `₹${value.toFixed(0)}`;
+
   return (
     <div className="space-y-6">
       <PageHeader title="Admin Dashboard" description="Overview of sales and pharmacy performance." icon={LayoutDashboard} />
@@ -58,7 +60,7 @@ export default function DashboardPage() {
         <CardContent>
           <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
             <ResponsiveContainer width="100%" height={350}>
-              <ComposedChart data={salesData} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
+              <ComposedChart data={salesData} margin={{ top: 20, right: 20, left: 20, bottom: 5 }}> {/* Increased top margin for labels */}
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis
                   dataKey="date"
@@ -84,7 +86,7 @@ export default function DashboardPage() {
                   tickLine={false}
                   axisLine={false}
                   tickMargin={8}
-                  domain={['auto', 'auto']}
+                  domain={['auto', 'dataMax + 5']} // Adjusted domain to give space for labels
                 />
                 <ChartTooltip
                   cursor={true}
@@ -101,8 +103,6 @@ export default function DashboardPage() {
                         return [`₹${Number(value).toFixed(2)}`, "Total Amount"];
                       }
                       if (name === "salesCount") {
-                         // For tooltip, we can show the specific bar color by accessing props.payload.fill if needed,
-                         // or just the generic label.
                         return [value, "Number of Sales"];
                       }
                       return [value, name];
@@ -114,6 +114,14 @@ export default function DashboardPage() {
                   {salesData.map((_entry, index) => (
                     <Cell key={`cell-${index}`} fill={barColors[index % barColors.length]} />
                   ))}
+                  <LabelList 
+                    dataKey="totalAmount" 
+                    position="top" 
+                    formatter={formatCurrency} 
+                    fill="hsl(var(--foreground))" // Use a contrasting color from your theme
+                    fontSize={12}
+                    offset={5} // Adjust offset for better positioning
+                  />
                 </Bar>
                 <Line type="monotone" dataKey="totalAmount" yAxisId="left" stroke="var(--color-totalAmount)" strokeWidth={2} dot={{ r: 4, fill: "var(--color-totalAmount)" }} activeDot={{r: 6}} />
               </ComposedChart>
