@@ -250,7 +250,7 @@ export default function ViewStockPage() {
                           size="sm" 
                           onClick={() => handleOpenDetailDialog(item)}
                           disabled={isLoadingRole || !isAdmin}
-                          title={!isAdmin ? "Admin access required to edit" : "View/Edit Details"}
+                          title={!isAdmin && !isLoadingRole ? "Admin access required to edit" : "View/Edit Details"}
                         >
                           <Edit3 className="mr-2 h-4 w-4" /> Details / Edit
                         </Button>
