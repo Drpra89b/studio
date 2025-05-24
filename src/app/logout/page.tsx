@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -5,11 +6,30 @@ import { LogOut, CheckCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import PageHeader from "@/components/shared/page-header";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
 
 export default function LogoutPage() {
-  // In a real app, actual logout logic (clearing session, redirecting) would happen here or in a server action.
-  // For this scaffold, it's a confirmation page.
+  const router = useRouter();
+  const { toast } = useToast();
+
+  React.useEffect(() => {
+    // Clear authentication status from localStorage
+    localStorage.removeItem("isAdmin");
+    localStorage.removeItem("isAuthenticated");
+    
+    toast({
+      title: "Logged Out",
+      description: "You have been successfully logged out.",
+    });
+
+    // Optionally, redirect after a short delay or immediately
+    // For now, user clicks the button to redirect
+  }, [toast]);
+
+  const handleReturnToLogin = () => {
+    router.push("/login");
+  };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)]">
@@ -22,14 +42,9 @@ export default function LogoutPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button asChild className="w-full">
-            <Link href="/">
-              Return to Login
-            </Link>
+          <Button onClick={handleReturnToLogin} className="w-full">
+            <LogOut className="mr-2 h-4 w-4" /> Return to Login
           </Button>
-          <p className="mt-4 text-xs text-muted-foreground">
-            (This is a simulated logout. In a real application, you would be redirected to a login page.)
-          </p>
         </CardContent>
       </Card>
     </div>

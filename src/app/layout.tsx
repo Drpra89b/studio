@@ -1,16 +1,17 @@
 
-"use client"; // Required for useState and useEffect
+"use client"; 
 
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
-import * as React from 'react'; // Import React
+import * as React from 'react'; 
 import './globals.css';
 import { SidebarProvider, Sidebar, SidebarInset, SidebarTrigger, SidebarHeader, SidebarContent, SidebarFooter } from '@/components/ui/sidebar';
 import SidebarNav from '@/components/layout/sidebar-nav';
 import { Toaster } from '@/components/ui/toaster';
 import { Button } from '@/components/ui/button';
-import { UserCircle, Settings } from 'lucide-react';
+import { UserCircle, Settings, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -22,69 +23,109 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
-// export const metadata: Metadata = { // Cannot use export metadata in a client component
-//   title: 'MediStore Pharmacy Management',
-//   description: 'Pharmacy Management Application by MediStore',
-// };
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   const [dynamicPharmacyName, setDynamicPharmacyName] = React.useState("MediStore");
-  const [mounted, setMounted] = React.useState(false);
-  const [isAdmin, setIsAdmin] = React.useState(false); // Simulate admin status, true = admin, false = staff
+  const [isAuthenticated, setIsAuthenticated] = React.useState<boolean | null>(null); // null for loading state
+  const [isAdmin, setIsAdmin] = React.useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
 
   React.useEffect(() => {
-    setMounted(true);
-    if (typeof window !== 'undefined') {
-      const storedName = localStorage.getItem('pharmacyName');
-      if (storedName) {
-        setDynamicPharmacyName(storedName);
-      }
-
-      // Listen for custom event
-      const handleNameUpdate = (event: Event) => {
-        const customEvent = event as CustomEvent<string>;
-        if (customEvent.detail) {
-            setDynamicPharmacyName(customEvent.detail);
-        }
-      };
-      window.addEventListener('pharmacyNameUpdated', handleNameUpdate);
-
-      // Set document title dynamically
-      document.title = `${storedName || 'MediStore'} Pharmacy Management`;
-      
-      // Simulate fetching admin status (e.g., from localStorage or an auth check)
-      // For now, it's hardcoded with useState, but you can change `isAdmin` default or set it here.
-      // Example: const storedIsAdmin = localStorage.getItem('isAdmin');
-      // if (storedIsAdmin) setIsAdmin(JSON.parse(storedIsAdmin));
-
-
-      return () => {
-        window.removeEventListener('pharmacyNameUpdated', handleNameUpdate);
-      };
+    const storedName = localStorage.getItem('pharmacyName');
+    if (storedName) {
+      setDynamicPharmacyName(storedName);
     }
-  }, []);
+    document.title = `${storedName || 'MediStore'} Pharmacy Management`;
 
-  if (!mounted) {
-    // To prevent hydration mismatch issues with localStorage access
+    const handleNameUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent<string>;
+      if (customEvent.detail) {
+          setDynamicPharmacyName(customEvent.detail);
+          document.title = `${customEvent.detail} Pharmacy Management`;
+      }
+    };
+    window.addEventListener('pharmacyNameUpdated', handleNameUpdate);
+
+    const authStatus = localStorage.getItem('isAuthenticated');
+    const adminStatus = localStorage.getItem('isAdmin');
+
+    if (authStatus === 'true') {
+      setIsAuthenticated(true);
+      setIsAdmin(adminStatus === 'true');
+    } else {
+      setIsAuthenticated(false);
+      setIsAdmin(false); // Default to non-admin if not authenticated
+    }
+    
+    return () => {
+      window.removeEventListener('pharmacyNameUpdated', handleNameUpdate);
+    };
+  }, []); // Runs once on mount to check initial auth & pharmacy name
+
+  React.useEffect(() => {
+    if (isAuthenticated === false && pathname !== '/login') {
+      router.push('/login');
+    } else if (isAuthenticated === true && pathname === '/login') {
+      router.push('/'); // Redirect from login to home if already authenticated
+    }
+  }, [isAuthenticated, pathname, router]);
+
+  if (isAuthenticated === null) { // Initial loading state
     return (
       <html lang="en">
         <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-          {/* Basic loader or simplified layout */}
-          <div className="flex items-center justify-center min-h-screen">Loading Application...</div>
+          <div className="flex items-center justify-center min-h-screen">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-2 text-muted-foreground">Loading Application...</span>
+          </div>
           <Toaster />
         </body>
       </html>
     );
   }
 
+  // If not authenticated and not on the login page, the effect above will redirect.
+  // Render children only if authenticated or if on the login page.
+  if (!isAuthenticated && pathname !== '/login') {
+    // This state should ideally be handled by the redirect,
+    // but as a fallback or during transition, show loading.
+     return (
+      <html lang="en">
+        <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+          <div className="flex items-center justify-center min-h-screen">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+             <span className="ml-2 text-muted-foreground">Redirecting to login...</span>
+          </div>
+          <Toaster />
+        </body>
+      </html>
+    );
+  }
+  
+  // Show login page without the main layout if on /login and not authenticated
+  if (pathname === '/login' && !isAuthenticated) {
+    return (
+      <html lang="en">
+        <head>
+           <title>{`${dynamicPharmacyName} Pharmacy Management - Login`}</title>
+           <meta name="description" content={`Login to ${dynamicPharmacyName} Pharmacy Management`} />
+        </head>
+        <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+          {children}
+          <Toaster />
+        </body>
+      </html>
+    );
+  }
+
+
   return (
     <html lang="en">
       <head>
-        {/* Metadata can be set here if needed, or using next/head in page components for more specific titles */}
         <title>{`${dynamicPharmacyName} Pharmacy Management`}</title>
         <meta name="description" content={`Pharmacy Management Application by ${dynamicPharmacyName}`} />
       </head>

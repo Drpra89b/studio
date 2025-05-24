@@ -1,0 +1,119 @@
+
+"use client";
+
+import * as React from "react";
+import { useRouter } from "next/navigation";
+import { Store, LogIn, User, Shield } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+
+export default function LoginPage() {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [username, setUsername] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [role, setRole] = React.useState<"admin" | "staff">("staff");
+  const [pharmacyName, setPharmacyName] = React.useState("MediStore"); // Default pharmacy name
+
+  React.useEffect(() => {
+    // Attempt to load pharmacy name from localStorage if it exists
+    const storedPharmacyName = localStorage.getItem('pharmacyName');
+    if (storedPharmacyName) {
+      setPharmacyName(storedPharmacyName);
+    }
+  }, []);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Simulate login
+    if (username && password) {
+      localStorage.setItem("isAdmin", role === "admin" ? "true" : "false");
+      localStorage.setItem("isAuthenticated", "true"); // Mark as authenticated
+      
+      // Dispatch event to update pharmacy name in layout if it's changed here (optional)
+      // window.dispatchEvent(new CustomEvent('pharmacyNameUpdated', { detail: pharmacyName }));
+
+      toast({
+        title: "Login Successful",
+        description: `Welcome, ${username}! You are logged in as ${role}.`,
+      });
+      router.push("/"); // Redirect to dashboard or main page
+    } else {
+      toast({
+        title: "Login Failed",
+        description: "Please enter username and password.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4">
+      <Card className="w-full max-w-md shadow-xl">
+        <CardHeader className="text-center">
+          <Store className="mx-auto h-12 w-12 text-primary mb-2" />
+          <CardTitle className="text-2xl font-bold">{pharmacyName} Login</CardTitle>
+          <CardDescription>Enter your credentials to access the system.</CardDescription>
+        </CardHeader>
+        <form onSubmit={handleLogin}>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="e.g., admin_user"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Shield className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="role">Role</Label>
+              <Select value={role} onValueChange={(value: "admin" | "staff") => setRole(value)}>
+                <SelectTrigger id="role">
+                  <SelectValue placeholder="Select your role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button type="submit" className="w-full">
+              <LogIn className="mr-2 h-4 w-4" /> Login
+            </Button>
+          </CardFooter>
+        </form>
+      </Card>
+      <p className="mt-6 text-xs text-muted-foreground">
+        This is a simulated login. No actual authentication is performed.
+      </p>
+    </div>
+  );
+}
