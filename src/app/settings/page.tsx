@@ -4,7 +4,7 @@
 import * as React from "react";
 import Link from "next/link";
 import PageHeader from "@/components/shared/page-header";
-import { Settings as SettingsIcon, Printer, FileText, Database, Palette, Trash2, Percent, UploadCloud, DownloadCloud } from "lucide-react";
+import { Settings as SettingsIcon, Printer, FileText, Database, Palette, Trash2, Percent, UploadCloud, DownloadCloud, UserCog } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -15,11 +15,11 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 
 const DOCTORS_STORAGE_KEY = "managedDoctorsList";
-const defaultDoctors = ["Dr. Other (Manual Entry)"]; // Simplified, as New Bill handles adding this
 const IS_TAX_ENABLED_KEY = "isTaxEnabled";
 const DEFAULT_GST_RATE_KEY = "defaultGstRate";
 const PHARMACY_PROFILE_KEY = "pharmacyProfile";
 const STAFF_LIST_KEY = "staffList";
+const APP_VERSION = "1.0.0"; // Define app version for metadata
 
 // List of all localStorage keys managed by the app
 const APP_STORAGE_KEYS = [
@@ -28,8 +28,10 @@ const APP_STORAGE_KEYS = [
   DEFAULT_GST_RATE_KEY,
   PHARMACY_PROFILE_KEY,
   STAFF_LIST_KEY,
-  "pharmacyName", // Also managed via pharmacyProfile, but good to include
+  "pharmacyName",
 ];
+
+const defaultDoctorsFallback = ["Dr. Other (Manual Entry)"];
 
 
 export default function SettingsPage() {
@@ -44,17 +46,18 @@ export default function SettingsPage() {
       if (storedDoctors) {
         try {
           const parsed = JSON.parse(storedDoctors);
-          // Ensure "Dr. Other (Manual Entry)" is always present
-          if (Array.isArray(parsed) && !parsed.includes("Dr. Other (Manual Entry)")) {
-            return ["Dr. Other (Manual Entry)", ...parsed.filter(doc => doc !== "Dr. Other (Manual Entry)")];
+          if (Array.isArray(parsed)) {
+             // Ensure "Dr. Other (Manual Entry)" is always present and at the top if missing
+            const uniqueDoctors = Array.from(new Set([defaultDoctorsFallback[0], ...parsed]));
+            return uniqueDoctors;
           }
-          return Array.isArray(parsed) ? parsed : defaultDoctors;
+          return defaultDoctorsFallback;
         } catch (e) {
           console.error("Failed to parse doctors list from localStorage", e);
         }
       }
     }
-    return defaultDoctors;
+    return defaultDoctorsFallback;
   });
 
   const [newDoctorName, setNewDoctorName] = React.useState("");
@@ -69,7 +72,7 @@ export default function SettingsPage() {
   const [defaultGstRate, setDefaultGstRate] = React.useState<number | string>(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem(DEFAULT_GST_RATE_KEY);
-      return stored ? parseFloat(stored) : 12;
+      return stored ? parseFloat(stored) : 12; // Default GST rate
     }
     return 12;
   });
@@ -125,8 +128,8 @@ export default function SettingsPage() {
   };
 
   const handleRemoveDoctor = (doctorNameToRemove: string) => {
-    if (doctorNameToRemove.toLowerCase() === "dr. other (manual entry)") {
-        toast({ title: "Action Not Allowed", description: "The 'Dr. Other (Manual Entry)' option cannot be removed.", variant: "destructive" });
+    if (doctorNameToRemove.toLowerCase() === defaultDoctorsFallback[0].toLowerCase()) {
+        toast({ title: "Action Not Allowed", description: `The '${defaultDoctorsFallback[0]}' option cannot be removed.`, variant: "destructive" });
         return;
     }
     setDoctorsList(prevList => prevList.filter(doc => doc !== doctorNameToRemove));
@@ -141,7 +144,7 @@ export default function SettingsPage() {
         const numValue = parseFloat(value);
         if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
             setDefaultGstRate(numValue);
-        } else if (isNaN(numValue) && value.length <=5) {
+        } else if (isNaN(numValue) && value.length <=5) { // Allow typing, e.g. "12."
             setDefaultGstRate(value);
         }
     }
@@ -164,20 +167,37 @@ export default function SettingsPage() {
 
   const handleBackupData = () => {
     if (typeof window === 'undefined') return;
-    const backupData: Record<string, any> = {};
+    
+    const appData: Record<string, any> = {};
     APP_STORAGE_KEYS.forEach(key => {
       const item = localStorage.getItem(key);
       if (item !== null) {
         try {
-          backupData[key] = JSON.parse(item);
+          appData[key] = JSON.parse(item);
         } catch (e) {
-          // If not JSON, store as string
-          backupData[key] = item;
+          // If not JSON (e.g. simple string, boolean, or number stored as string), store as is.
+          // JSON.parse would fail for "true" or "12" directly.
+          // But if it was stringified object/array, parsing is needed.
+          // For our known keys, isTaxEnabled and defaultGstRate are boolean/number like.
+          // pharmacyName is string. Others are stringified JSON.
+          if (key === IS_TAX_ENABLED_KEY) appData[key] = item === 'true';
+          else if (key === DEFAULT_GST_RATE_KEY) appData[key] = parseFloat(item);
+          else if (key === "pharmacyName") appData[key] = item;
+          else appData[key] = item; // Fallback for unexpected non-JSON, though most should be JSON or handled above
         }
       }
     });
+    
+    const backupFileContent = {
+      metadata: {
+        appName: "MediStoreApp",
+        backupDate: new Date().toISOString(),
+        version: APP_VERSION,
+      },
+      data: appData
+    };
 
-    const jsonString = JSON.stringify(backupData, null, 2);
+    const jsonString = JSON.stringify(backupFileContent, null, 2);
     const blob = new Blob([jsonString], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -211,12 +231,28 @@ export default function SettingsPage() {
     reader.onload = (e) => {
       try {
         const jsonString = e.target?.result as string;
-        const restoredData = JSON.parse(jsonString);
+        const backupFileContent = JSON.parse(jsonString);
         
+        if (!backupFileContent.data || !backupFileContent.metadata) {
+          toast({ title: "Restore Failed", description: "Invalid backup file structure. Missing metadata or data key.", variant: "destructive"});
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          return;
+        }
+        
+        // Basic check for metadata version if needed in future
+        // if (backupFileContent.metadata.version !== APP_VERSION) { ... }
+
+        const restoredData = backupFileContent.data;
         let restoredCount = 0;
         for (const key in restoredData) {
-          if (APP_STORAGE_KEYS.includes(key) || key === "pharmacyProfile" || key === "staffList" || key === "managedDoctorsList") { // Be more flexible with expected keys
-            localStorage.setItem(key, JSON.stringify(restoredData[key]));
+          if (APP_STORAGE_KEYS.includes(key)) {
+            // Ensure data is stringified before storing, as localStorage only takes strings
+            // Booleans and numbers from parsed JSON need to be converted to string.
+            // Objects/Arrays need to be stringified.
+            const valueToStore = typeof restoredData[key] === 'object' 
+                ? JSON.stringify(restoredData[key]) 
+                : String(restoredData[key]);
+            localStorage.setItem(key, valueToStore);
             restoredCount++;
           }
         }
@@ -236,7 +272,6 @@ export default function SettingsPage() {
         console.error("Restore error:", error);
         toast({ title: "Restore Failed", description: "Invalid backup file format or corrupted data.", variant: "destructive"});
       } finally {
-        // Reset file input value to allow selecting the same file again if needed
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
@@ -353,7 +388,7 @@ export default function SettingsPage() {
                   {doctorsList.map((doctor, index) => (
                     <li key={index} className="flex items-center justify-between p-2 border rounded-md bg-muted/50">
                       <span>{doctor}</span>
-                      {doctor.toLowerCase() !== "dr. other (manual entry)" && ( 
+                      {doctor.toLowerCase() !== defaultDoctorsFallback[0].toLowerCase() && ( 
                         <Button variant="ghost" size="icon" onClick={() => handleRemoveDoctor(doctor)} title={`Remove ${doctor}`}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -362,10 +397,10 @@ export default function SettingsPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-muted-foreground">No doctors added yet. Add one above, or "Dr. Other (Manual Entry)" will be used as default.</p>
+                <p className="text-sm text-muted-foreground">No doctors added yet. Add one above, or "{defaultDoctorsFallback[0]}" will be used as default.</p>
               )}
               <p className="text-xs text-muted-foreground pt-2">
-                The "Dr. Other (Manual Entry)" option allows for manual doctor name input on the billing page and cannot be removed.
+                The "{defaultDoctorsFallback[0]}" option allows for manual doctor name input on the billing page and cannot be removed.
               </p>
             </CardContent>
           </Card>
@@ -430,4 +465,4 @@ export default function SettingsPage() {
 }
     
 
-    
+      
