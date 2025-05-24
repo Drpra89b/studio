@@ -2,12 +2,14 @@
 "use client";
 
 import * as React from "react";
-import { LayoutDashboard, IndianRupee } from "lucide-react";
+import { LayoutDashboard, IndianRupee, AlertTriangle, ShoppingCart, CalendarClock } from "lucide-react";
 import PageHeader from "@/components/shared/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ChartConfig } from "@/components/ui/chart";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { Bar, Line, ComposedChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Cell, LabelList } from "recharts";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 const salesData = [
   { date: "2024-07-20", salesCount: 5, totalAmount: 3500.75 },
@@ -31,20 +33,70 @@ const chartConfig = {
     label: "Number of Sales",
     color: "hsl(var(--chart-3))", // Dark Blue (used for legend and Y-axis)
   },
-  // Define individual bar colors if needed for legend, but Cell overrides actual bar color
 } satisfies ChartConfig;
 
 const barColors = [
   "hsl(var(--chart-1))",
   "hsl(var(--chart-2))",
   "hsl(var(--chart-5))",
-  "hsl(var(--primary))", // Using primary theme color for variety
-  "hsl(var(--accent))",  // Using accent theme color
+  "hsl(var(--primary))", 
+  "hsl(var(--accent))",  
 ];
 
+interface NotificationItem {
+  id: string;
+  type: "lowStock" | "expiringSoon" | "info";
+  title: string;
+  message: string;
+  timestamp: string;
+}
+
+const sampleNotifications: NotificationItem[] = [
+  { 
+    id: "1", 
+    type: "lowStock", 
+    title: "Low Stock: Paracetamol 500mg", 
+    message: "Only 15 units left. Consider reordering.", 
+    timestamp: "2 hours ago" 
+  },
+  { 
+    id: "2", 
+    type: "expiringSoon", 
+    title: "Expiring Soon: Amoxicillin 250mg (Batch A098)", 
+    message: "Expires in 10 days. Current stock: 20 units.", 
+    timestamp: "Yesterday" 
+  },
+  { 
+    id: "3", 
+    type: "info", 
+    title: "System Maintenance Scheduled", 
+    message: "Brief maintenance on Aug 5th, 2 AM - 3 AM.", 
+    timestamp: "3 days ago" 
+  },
+   { 
+    id: "4", 
+    type: "lowStock", 
+    title: "Low Stock: Ibuprofen Drops", 
+    message: "Only 5 units left. Urgent reorder needed.", 
+    timestamp: "Just now" 
+  },
+];
 
 export default function DashboardPage() {
   const formatCurrency = (value: number) => `₹${value.toFixed(0)}`;
+
+  const getNotificationIcon = (type: NotificationItem["type"]) => {
+    switch (type) {
+      case "lowStock":
+        return <ShoppingCart className="h-5 w-5 text-orange-500" />;
+      case "expiringSoon":
+        return <CalendarClock className="h-5 w-5 text-red-500" />;
+      case "info":
+        return <AlertTriangle className="h-5 w-5 text-blue-500" />;
+      default:
+        return <AlertTriangle className="h-5 w-5 text-muted-foreground" />;
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -60,7 +112,7 @@ export default function DashboardPage() {
         <CardContent>
           <ChartContainer config={chartConfig} className="min-h-[300px] w-full">
             <ResponsiveContainer width="100%" height={350}>
-              <ComposedChart data={salesData} margin={{ top: 20, right: 20, left: 20, bottom: 5 }}> {/* Increased top margin for labels */}
+              <ComposedChart data={salesData} margin={{ top: 20, right: 20, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis
                   dataKey="date"
@@ -86,7 +138,7 @@ export default function DashboardPage() {
                   tickLine={false}
                   axisLine={false}
                   tickMargin={8}
-                  domain={['auto', 'dataMax + 5']} // Adjusted domain to give space for labels
+                  domain={['auto', 'dataMax + 5']}
                 />
                 <ChartTooltip
                   cursor={true}
@@ -118,9 +170,9 @@ export default function DashboardPage() {
                     dataKey="totalAmount" 
                     position="top" 
                     formatter={formatCurrency} 
-                    fill="hsl(var(--foreground))" // Use a contrasting color from your theme
+                    fill="hsl(var(--foreground))" 
                     fontSize={12}
-                    offset={5} // Adjust offset for better positioning
+                    offset={5} 
                   />
                 </Bar>
                 <Line type="monotone" dataKey="totalAmount" yAxisId="left" stroke="var(--color-totalAmount)" strokeWidth={2} dot={{ r: 4, fill: "var(--color-totalAmount)" }} activeDot={{r: 6}} />
@@ -130,7 +182,6 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Placeholder for more dashboard cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Card>
           <CardHeader>
@@ -150,16 +201,35 @@ export default function DashboardPage() {
             <p className="text-sm text-muted-foreground">No recent activity to show. (Placeholder)</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="lg:col-span-1"> {/* Adjusted for potential wider notification list */}
           <CardHeader>
             <CardTitle>Notifications</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">No new notifications. (Placeholder)</p>
+            {sampleNotifications.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No new notifications.</p>
+            ) : (
+              <div className="space-y-4">
+                {sampleNotifications.map((notification, index) => (
+                  <React.Fragment key={notification.id}>
+                    <div className="flex items-start space-x-3">
+                      <div className="flex-shrink-0 pt-0.5">
+                        {getNotificationIcon(notification.type)}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium leading-tight">{notification.title}</p>
+                        <p className="text-xs text-muted-foreground">{notification.message}</p>
+                        <p className="text-xs text-muted-foreground/70 mt-0.5">{notification.timestamp}</p>
+                      </div>
+                    </div>
+                    {index < sampleNotifications.length - 1 && <Separator className="my-2" />}
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
     </div>
   );
 }
-
