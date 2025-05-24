@@ -2,8 +2,9 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link"; // Added Link import
 import PageHeader from "@/components/shared/page-header";
-import { Settings as SettingsIcon, Printer, FileText, Users, Database, Palette } from "lucide-react";
+import { Settings as SettingsIcon, Printer, FileText, Users, Database, Palette, UsersCog } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -69,15 +70,16 @@ export default function SettingsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-primary" /> Staff Permissions</CardTitle>
+              <CardTitle className="flex items-center gap-2"><UsersCog className="h-5 w-5 text-primary" /> Staff Permissions</CardTitle>
               <CardDescription>Manage default roles and permissions for staff members.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                <p className="text-sm text-muted-foreground">
-                Detailed staff permission settings (e.g., per-module access) would be configured here. 
-                This section is a placeholder for more granular controls.
+                Configure detailed staff roles and permissions.
               </p>
-              <Button variant="outline">Manage Roles & Permissions</Button>
+              <Button variant="outline" asChild>
+                <Link href="/settings/roles-permissions">Manage Roles & Permissions</Link>
+              </Button>
             </CardContent>
           </Card>
           
