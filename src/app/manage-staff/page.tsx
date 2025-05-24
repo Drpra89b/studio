@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 
 import PageHeader from "@/components/shared/page-header";
-import { Users, UserPlus, Edit, UserCheck, UserX } from "lucide-react";
+import { Users, UserPlus, Edit, UserCheck, UserX, Trash2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -22,6 +22,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
@@ -42,16 +53,16 @@ const initialSampleStaff: StaffMember[] = [
 
 const addStaffFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
-  username: z.string().min(3, { message: "Username must be at least 3 characters." }),
+  username: z.string().min(3, { message: "Username must be at least 3 characters." }).regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores."),
   email: z.string().email({ message: "Please enter a valid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
 });
 type AddStaffFormValues = z.infer<typeof addStaffFormSchema>;
 
 const editStaffFormSchema = z.object({
-  id: z.string(), // To identify which staff member is being edited
+  id: z.string(),
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
-  username: z.string().min(3, { message: "Username must be at least 3 characters." }),
+  username: z.string().min(3, { message: "Username must be at least 3 characters." }).regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores."),
   email: z.string().email({ message: "Please enter a valid email address." }),
 });
 type EditStaffFormValues = z.infer<typeof editStaffFormSchema>;
@@ -90,7 +101,7 @@ export default function ManageStaffPage() {
       name: data.name,
       username: data.username,
       email: data.email,
-      status: "Active",
+      status: "Active", // New users are directly active
     };
     setStaffList(prevStaff => [newStaffMember, ...prevStaff]);
     toast({
@@ -103,7 +114,7 @@ export default function ManageStaffPage() {
 
   const handleEditStaff = (staff: StaffMember) => {
     setEditingStaff(staff);
-    editForm.reset({ // Populate the form with existing staff data
+    editForm.reset({
       id: staff.id,
       name: staff.name,
       username: staff.username,
@@ -117,7 +128,7 @@ export default function ManageStaffPage() {
 
     setStaffList(prevStaffList =>
       prevStaffList.map(staff =>
-        staff.id === editingStaff.id ? { ...staff, ...data } : staff
+        staff.id === editingStaff.id ? { ...staff, name: data.name, username: data.username, email: data.email } : staff
       )
     );
     toast({
@@ -129,7 +140,6 @@ export default function ManageStaffPage() {
     editForm.reset();
   }
 
-
   const handleToggleStaffStatus = (staffId: string, newStatus: StaffMember['status']) => {
     setStaffList(prevStaffList =>
       prevStaffList.map(staff =>
@@ -137,15 +147,13 @@ export default function ManageStaffPage() {
       )
     );
 
-    let toastMessage = "";
     const staffMemberName = staffList.find(s => s.id === staffId)?.name || "Staff member";
-
+    let toastMessage = "";
     if (newStatus === "Active") {
       toastMessage = `${staffMemberName} has been enabled.`;
     } else if (newStatus === "Disabled") {
       toastMessage = `${staffMemberName} has been disabled.`;
     }
-
     toast({
       title: "Staff Status Updated",
       description: toastMessage,
@@ -153,6 +161,15 @@ export default function ManageStaffPage() {
     });
   };
 
+  const handleDeleteStaff = (staffId: string) => {
+    const staffMember = staffList.find(s => s.id === staffId);
+    setStaffList(prevStaffList => prevStaffList.filter(staff => staff.id !== staffId));
+    toast({
+      title: "Staff User Deleted",
+      description: `Staff member ${staffMember?.name || ''} has been permanently deleted.`,
+      variant: "destructive",
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -179,58 +196,34 @@ export default function ManageStaffPage() {
               </DialogHeader>
               <Form {...addForm}>
                 <form onSubmit={addForm.handleSubmit(onAddStaffSubmit)} className="space-y-4 py-4">
-                  <FormField
-                    control={addForm.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Full Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., John Doe" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={addForm.control}
-                    name="username"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Username</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., johndoe" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={addForm.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email Address</FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder="e.g., user@example.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={addForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Password</FormLabel>
-                        <FormControl>
-                          <Input type="password" placeholder="Set initial password" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <FormField control={addForm.control} name="name" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Full Name</FormLabel>
+                      <FormControl><Input placeholder="e.g., John Doe" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={addForm.control} name="username" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Username</FormLabel>
+                      <FormControl><Input placeholder="e.g., johndoe" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={addForm.control} name="email" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email Address</FormLabel>
+                      <FormControl><Input type="email" placeholder="e.g., user@example.com" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={addForm.control} name="password" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Initial Password</FormLabel>
+                      <FormControl><Input type="password" placeholder="Set initial password" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
                   <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => { addForm.reset(); setIsAddStaffDialogOpen(false); }}>Cancel</Button>
                     <Button type="submit">Add Staff</Button>
@@ -262,14 +255,11 @@ export default function ManageStaffPage() {
                       <TableCell>{staff.username}</TableCell>
                       <TableCell>{staff.email}</TableCell>
                       <TableCell>
-                        <Badge variant={
-                          staff.status === "Active" ? "default" : "destructive"
-                        }
-                        className={cn(
-                          staff.status === "Active" && "bg-green-500 hover:bg-green-600 text-white",
-                          staff.status === "Disabled" && "bg-slate-500 hover:bg-slate-600 text-white"
-                        )}
-                        >
+                        <Badge variant={staff.status === "Active" ? "default" : "destructive"}
+                          className={cn(
+                            staff.status === "Active" && "bg-green-500 hover:bg-green-600 text-white",
+                            staff.status === "Disabled" && "bg-slate-500 hover:bg-slate-600 text-white"
+                          )}>
                           {staff.status}
                         </Badge>
                       </TableCell>
@@ -277,15 +267,38 @@ export default function ManageStaffPage() {
                         <Button variant="outline" size="sm" onClick={() => handleEditStaff(staff)}>
                             <Edit className="mr-2 h-4 w-4"/> Edit
                         </Button>
-                         {staff.status === "Active" && (
+                        {staff.status === "Active" && (
                            <Button variant="destructive" size="sm" onClick={() => handleToggleStaffStatus(staff.id, "Disabled")}>
                              <UserX className="mr-2 h-4 w-4"/> Disable
                            </Button>
                         )}
                         {staff.status === "Disabled" && (
-                           <Button variant="default" size="sm" className="bg-green-500 hover:bg-green-600 text-white" onClick={() => handleToggleStaffStatus(staff.id, "Active")}>
-                             <UserCheck className="mr-2 h-4 w-4"/> Enable
-                           </Button>
+                          <>
+                            <Button variant="default" size="sm" className="bg-green-500 hover:bg-green-600 text-white" onClick={() => handleToggleStaffStatus(staff.id, "Active")}>
+                              <UserCheck className="mr-2 h-4 w-4"/> Enable
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="sm">
+                                  <Trash2 className="mr-2 h-4 w-4"/> Delete
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This action will permanently delete the staff member "{staff.name}". This cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteStaff(staff.id)}>
+                                    Yes, Delete Staff Member
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </>
                         )}
                       </TableCell>
                     </TableRow>
@@ -300,58 +313,39 @@ export default function ManageStaffPage() {
       {/* Edit Staff Dialog */}
       <Dialog open={isEditStaffDialogOpen} onOpenChange={(isOpen) => {
           setIsEditStaffDialogOpen(isOpen);
-          if (!isOpen) setEditingStaff(null); // Reset editingStaff when dialog closes
+          if (!isOpen) setEditingStaff(null);
         }}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Edit Staff Member</DialogTitle>
             <DialogDescription>
-              Update the details for {editingStaff?.name}.
+              Update the details for {editingStaff?.name}. Password cannot be changed here.
             </DialogDescription>
           </DialogHeader>
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit(onEditStaffSubmit)} className="space-y-4 py-4">
-              {/* Hidden field for ID, not strictly necessary if editingStaff holds it but good for form structure */}
               <FormField control={editForm.control} name="id" render={({ field }) => <Input type="hidden" {...field} />} />
-              <FormField
-                control={editForm.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Full Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., John Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Username</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., johndoe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email Address</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="e.g., user@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <FormField control={editForm.control} name="name" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Full Name</FormLabel>
+                  <FormControl><Input placeholder="e.g., John Doe" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={editForm.control} name="username" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Username</FormLabel>
+                  <FormControl><Input placeholder="e.g., johndoe" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={editForm.control} name="email" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email Address</FormLabel>
+                  <FormControl><Input type="email" placeholder="e.g., user@example.com" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => { setIsEditStaffDialogOpen(false); setEditingStaff(null); }}>Cancel</Button>
                 <Button type="submit">Save Changes</Button>
@@ -360,10 +354,6 @@ export default function ManageStaffPage() {
           </Form>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }
-
-
-    
