@@ -94,20 +94,30 @@ export default function BillDetailPage() {
         console.error("Web Share API error:", error); 
         const domError = error as DOMException;
 
-        if (domError.name === 'NotAllowedError') { // Specifically for permission denied
+        if (domError && domError.name === 'AbortError') {
+          // User cancelled the share dialog, do nothing or provide a subtle feedback
+          toast({ title: "Share Canceled", description: "You cancelled the share action.", variant: "default" });
+        } else if (domError && domError.name === 'NotAllowedError') {
           toast({
             title: "Share Permission Denied",
-            description: "Your browser denied permission. Trying to copy link instead...",
+            description: "Could not share due to permissions. Copied link to clipboard instead.",
             variant: "destructive",
           });
           await copyToClipboardFallback();
-        } else if (domError.name !== 'AbortError') { // User didn't cancel, and it's not a permission error
-          toast({ title: "Share Error", description: "Could not share the bill. Please try again.", variant: "destructive" });
+        } 
+        else { 
+          // For other errors (including other DOMExceptions or generic errors)
+          toast({ 
+            title: "Share Error", 
+            description: "Could not share the bill. Copied link to clipboard instead.", 
+            variant: "destructive" 
+          });
+          await copyToClipboardFallback();
         }
-        // If it's AbortError, do nothing (user cancelled intentionally)
       }
     } else {
       // Fallback to copying the link to the clipboard if navigator.share is not supported
+      toast({ title: "Share Not Supported", description: "Web Share not supported. Copied link to clipboard."});
       await copyToClipboardFallback();
     }
   };
