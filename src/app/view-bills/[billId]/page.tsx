@@ -60,8 +60,6 @@ export default function BillDetailPage() {
 
   const handlePrint = () => {
     if (typeof window !== 'undefined') {
-      // Potentially hide elements before printing and show after
-      // For now, direct print. CSS will handle hiding some elements.
       window.print();
       toast({ title: "Print Initiated", description: "Your browser's print dialog should appear."});
     } else {
@@ -83,13 +81,11 @@ export default function BillDetailPage() {
         await navigator.share(shareData);
         toast({ title: "Bill Shared", description: "The bill link has been shared." });
       } catch (error) {
-        // User cancelled sharing or an error occurred
         if ((error as DOMException).name !== 'AbortError') {
           toast({ title: "Share Error", description: "Could not share the bill. Please try again.", variant: "destructive" });
         }
       }
     } else {
-      // Fallback for browsers that don't support Web Share API
       try {
         await navigator.clipboard.writeText(shareData.url);
         toast({ title: "Link Copied", description: "Bill link copied to clipboard." });
@@ -168,8 +164,6 @@ export default function BillDetailPage() {
                 <TableHeader>
                   <TableRow className="print:border-b print:border-gray-300">
                     <TableHead className="print:py-1 print:px-2">Medication</TableHead>
-                    <TableHead className="print:py-1 print:px-2">Batch No.</TableHead>
-                    <TableHead className="print:py-1 print:px-2">Expiry</TableHead>
                     <TableHead className="text-center print:py-1 print:px-2">Qty</TableHead>
                     <TableHead className="text-right print:py-1 print:px-2">Price/Unit</TableHead>
                     <TableHead className="text-right print:py-1 print:px-2">Total</TableHead>
@@ -179,8 +173,6 @@ export default function BillDetailPage() {
                   {bill.items.map((item) => (
                     <TableRow key={item.id} className="print:border-b print:border-gray-200">
                       <TableCell className="font-medium print:py-1 print:px-2">{item.medicationName}</TableCell>
-                      <TableCell className="print:py-1 print:px-2">{item.batchNo}</TableCell>
-                      <TableCell className="print:py-1 print:px-2">{new Date(item.expiryDate).toLocaleDateString()}</TableCell>
                       <TableCell className="text-center print:py-1 print:px-2">{item.quantity}</TableCell>
                       <TableCell className="text-right print:py-1 print:px-2">{formatCurrency(item.pricePerUnit)}</TableCell>
                       <TableCell className="text-right print:py-1 print:px-2">{formatCurrency(item.totalPrice)}</TableCell>
@@ -195,7 +187,6 @@ export default function BillDetailPage() {
           
           <div className="flex justify-end">
             <div className="w-full max-w-xs space-y-2 text-sm print:max-w-none print:w-auto print:ml-auto">
-              {/* Subtotal could be calculated if needed, for now just showing total */}
               <div className="flex justify-between font-semibold text-lg print:text-base">
                 <span>Grand Total:</span>
                 <span>{formatCurrency(bill.totalAmount)}</span>
@@ -223,3 +214,4 @@ export default function BillDetailPage() {
   );
 }
 
+    

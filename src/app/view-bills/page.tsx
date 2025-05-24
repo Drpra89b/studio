@@ -12,13 +12,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-// This BillItem type is used by both view-bills/page.tsx and view-bills/[billId]/page.tsx
-// And also now by src/app/page.tsx for consistency
 export interface BillItem {
   id: string;
   medicationName: string;
-  batchNo: string;
-  expiryDate: string; // Should be ISO string
   quantity: number;
   pricePerUnit: number;
   totalPrice: number; // Calculated as quantity * pricePerUnit
@@ -47,8 +43,8 @@ const sampleBills: Bill[] = [
     totalAmount: 125.50,
     status: "Paid",
     items: [
-      { id: "item1", medicationName: "Paracetamol 500mg", batchNo: "P123", expiryDate: new Date("2025-12-31").toISOString(), quantity: 20, pricePerUnit: 2.50, totalPrice: 50.00 },
-      { id: "item2", medicationName: "Amoxicillin 250mg", batchNo: "A098", expiryDate: new Date("2024-11-30").toISOString(), quantity: 15, pricePerUnit: 5.0333, totalPrice: 75.50 }, // price adjusted to match total
+      { id: "item1", medicationName: "Paracetamol 500mg", quantity: 2, pricePerUnit: 25.25, totalPrice: 50.50 },
+      { id: "item2", medicationName: "Amoxicillin 250mg", quantity: 1, pricePerUnit: 75.00, totalPrice: 75.00 },
     ],
     paymentMethod: "Credit Card",
     notes: "Patient requested a digital copy."
@@ -62,7 +58,7 @@ const sampleBills: Bill[] = [
     totalAmount: 75.00,
     status: "Pending",
     items: [
-      { id: "item3", medicationName: "Ibuprofen 200mg", batchNo: "I765", expiryDate: new Date("2025-06-30").toISOString(), quantity: 30, pricePerUnit: 2.50, totalPrice: 75.00 },
+      { id: "item3", medicationName: "Ibuprofen 200mg", quantity: 3, pricePerUnit: 25.00, totalPrice: 75.00 },
     ],
     paymentMethod: "Cash",
   },
@@ -75,8 +71,8 @@ const sampleBills: Bill[] = [
     totalAmount: 210.75,
     status: "Paid",
     items: [
-      { id: "item4", medicationName: "Vitamin C Tablets", batchNo: "VC001", expiryDate: new Date("2026-01-01").toISOString(), quantity: 50, pricePerUnit: 1.00, totalPrice: 50.00 },
-      { id: "item5", medicationName: "Cough Syrup", batchNo: "CS002", expiryDate: new Date("2025-08-15").toISOString(), quantity: 2, pricePerUnit: 80.375, totalPrice: 160.75 },
+      { id: "item4", medicationName: "Vitamin C Tablets", quantity: 5, pricePerUnit: 10.15, totalPrice: 50.75 },
+      { id: "item5", medicationName: "Cough Syrup", quantity: 2, pricePerUnit: 80.00, totalPrice: 160.00 },
     ],
     notes: "Follow up in a week."
   },
@@ -89,7 +85,7 @@ const sampleBills: Bill[] = [
     totalAmount: 55.20,
     status: "Cancelled",
     items: [
-      { id: "item6", medicationName: "Band-Aids (Box)", batchNo: "BA003", expiryDate: new Date("2027-01-01").toISOString(), quantity: 1, pricePerUnit: 55.20, totalPrice: 55.20 },
+      { id: "item6", medicationName: "Band-Aids (Box)", quantity: 1, pricePerUnit: 55.20, totalPrice: 55.20 },
     ],
   },
   {
@@ -101,7 +97,7 @@ const sampleBills: Bill[] = [
     totalAmount: 150.00,
     status: "Paid",
     items: [
-      { id: "item7", medicationName: "Aspirin 75mg", batchNo: "ASP002", expiryDate: new Date("2025-02-28").toISOString(), quantity: 100, pricePerUnit: 1.50, totalPrice: 150.00 },
+      { id: "item7", medicationName: "Aspirin 75mg", quantity: 10, pricePerUnit: 15.00, totalPrice: 150.00 },
     ],
     paymentMethod: "Insurance",
   },
@@ -129,7 +125,10 @@ export default function ViewBillsPage() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
+    // Use 'en-CA' for YYYY-MM-DD to be consistent with how it's saved in NewBillPage if it were a proper date
+    // However, NewBillPage saves it as toLocaleDateString() which is locale-dependent.
+    // For consistency in display, it's best to parse and reformat.
+    return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
   return (

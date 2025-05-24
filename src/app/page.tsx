@@ -3,9 +3,9 @@
 
 import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import * as z from "zod";
-import { FilePlus2, User, BriefcaseMedical, CalendarDays, Trash2, PlusCircle } from "lucide-react";
+import { FilePlus2, User, BriefcaseMedical, Trash2, PlusCircle } from "lucide-react";
 
 import PageHeader from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -14,17 +14,13 @@ import { Label } from "@/components/ui/label";
 import { DatePicker } from "@/components/shared/date-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 import type { BillItem } from "@/app/view-bills/page"; // Import BillItem type
 
 const billItemSchema = z.object({
-  id: z.string().optional(), // For react-hook-form key, not part of stored data
+  id: z.string().optional(), // For react-hook-form key
   medicationName: z.string().min(1, "Medication name is required."),
-  batchNumber: z.string().min(1, "Batch number is required."),
-  expiryDate: z.date({ required_error: "Expiry date is required." }),
   quantity: z.coerce.number().int().min(1, "Quantity must be at least 1."),
   pricePerUnit: z.coerce.number().min(0.01, "Price must be positive."),
 });
@@ -47,7 +43,7 @@ export interface TodaysBill {
   doctorName: string;
   date: string;
   totalAmount: number;
-  items: BillItem[]; // Added items array
+  items: BillItem[];
 }
 
 export default function NewBillPage() {
@@ -57,10 +53,8 @@ export default function NewBillPage() {
   
   React.useEffect(() => {
     // Generate a unique bill number client-side
-    if (!billNumber) {
-        setBillNumber(`BILL-${Date.now().toString().slice(-6)}`);
-    }
-  }, [billNumber]);
+    setBillNumber(`BILL-${Date.now().toString().slice(-6)}`);
+  }, [todaysBills]); // Re-generate if a bill is submitted
 
   const form = useForm<BillFormValues>({
     resolver: zodResolver(billFormSchema),
@@ -68,7 +62,7 @@ export default function NewBillPage() {
       patientName: "",
       doctorName: "",
       billDate: new Date(),
-      items: [{ medicationName: "", batchNumber: "", expiryDate: new Date(), quantity: 1, pricePerUnit: 0 }],
+      items: [{ medicationName: "", quantity: 1, pricePerUnit: 0 }],
     },
   });
 
@@ -118,8 +112,6 @@ export default function NewBillPage() {
     const formattedItems: BillItem[] = data.items.map((item, index) => ({
       id: `item-${Date.now()}-${index}`,
       medicationName: item.medicationName,
-      batchNo: item.batchNumber,
-      expiryDate: item.expiryDate.toISOString(),
       quantity: item.quantity,
       pricePerUnit: item.pricePerUnit,
       totalPrice: item.quantity * item.pricePerUnit,
@@ -132,7 +124,7 @@ export default function NewBillPage() {
       billNumber: billNumber,
       patientName: data.patientName,
       doctorName: data.doctorName,
-      date: data.billDate.toLocaleDateString(),
+      date: data.billDate.toLocaleDateString('en-CA'), // Using 'en-CA' for YYYY-MM-DD format for consistency
       totalAmount: calculatedTotalAmount,
       items: formattedItems,
     };
@@ -146,11 +138,11 @@ export default function NewBillPage() {
       billDate: new Date(), 
       patientName: "", 
       doctorName: "",
-      items: [{ medicationName: "", batchNumber: "", expiryDate: new Date(), quantity: 1, pricePerUnit: 0 }],
+      items: [{ medicationName: "", quantity: 1, pricePerUnit: 0 }],
     });
     setSelectedDoctor("");
     setManualDoctorName("");
-    setBillNumber(null); // Will trigger useEffect to generate new bill number
+    // setBillNumber(null); // useEffect will generate new one based on todaysBills change
   }
 
   return (
@@ -257,7 +249,7 @@ export default function NewBillPage() {
               <div className="border-t pt-6 space-y-4">
                 <div className="flex justify-between items-center">
                     <h3 className="text-lg font-medium text-foreground">Medication Items *</h3>
-                    <Button type="button" variant="outline" size="sm" onClick={() => append({ medicationName: "", batchNumber: "", expiryDate: new Date(), quantity: 1, pricePerUnit: 0 })}>
+                    <Button type="button" variant="outline" size="sm" onClick={() => append({ medicationName: "", quantity: 1, pricePerUnit: 0 })}>
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Item
                     </Button>
                 </div>
@@ -283,36 +275,14 @@ export default function NewBillPage() {
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Remove item</span>
                       </Button>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-start">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-start">
                         <FormField
                           control={form.control}
                           name={`items.${index}.medicationName`}
                           render={({ field: formField }) => (
-                            <FormItem className="lg:col-span-2">
+                            <FormItem className="md:col-span-1">
                               <FormLabel>Medication Name</FormLabel>
                               <FormControl><Input placeholder="e.g., Paracetamol 500mg" {...formField} /></FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.batchNumber`}
-                          render={({ field: formField }) => (
-                            <FormItem>
-                              <FormLabel>Batch No.</FormLabel>
-                              <FormControl><Input placeholder="e.g., BATCH123" {...formField} /></FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name={`items.${index}.expiryDate`}
-                          render={({ field: formField }) => (
-                            <FormItem className="flex flex-col">
-                              <FormLabel className="mb-1.5">Expiry Date</FormLabel>
-                              <DatePicker date={formField.value} setDate={formField.onChange} disabled={(date) => date < new Date(new Date().setDate(new Date().getDate() -1 )) } />
                               <FormMessage />
                             </FormItem>
                           )}
@@ -408,5 +378,6 @@ export default function NewBillPage() {
     </div>
   );
 }
+    
 
     
