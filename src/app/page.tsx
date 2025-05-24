@@ -5,7 +5,7 @@ import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { FilePlus2, User, BriefcaseMedical, Trash2, PlusCircle, Search as SearchIcon, XCircle } from "lucide-react";
+import { FilePlus2, User, BriefcaseMedical, Trash2, PlusCircle, Search as SearchIcon, XCircle, Hash } from "lucide-react";
 
 import PageHeader from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -177,9 +177,6 @@ export default function NewBillPage() {
       quantity: item.quantity,
       pricePerUnit: item.pricePerUnit,
     }));
-    // Set the value and trigger validation.
-    // If itemsForFormValidation is empty, this should make the form invalid due to .min(1)
-    // If not empty, it should make it valid (assuming individual items are also valid)
     form.setValue("items", itemsForFormValidation, { shouldValidate: true });
   }, [currentBillItems, form]);
 
@@ -188,9 +185,7 @@ export default function NewBillPage() {
       toast({ title: "Error", description: "Bill number not generated yet.", variant: "destructive" });
       return;
     }
-    // Validation for items.length === 0 is now handled by Zod/handleSubmit
-    // because of the useEffect synchronizing currentBillItems with form.items
-
+    
     const finalBillDate = data.billDate || new Date();
 
     const newBill: TodaysBill = {
@@ -198,9 +193,9 @@ export default function NewBillPage() {
       billNumber: billNumber,
       patientName: data.patientName,
       doctorName: data.doctorName,
-      date: finalBillDate.toLocaleDateString('en-CA'), // Use 'en-CA' for YYYY-MM-DD format or adjust as needed
+      date: finalBillDate.toLocaleDateString('en-CA'), 
       totalAmount: grandTotal,
-      items: currentBillItems, // Use currentBillItems as it contains id and totalPrice per item
+      items: currentBillItems, 
     };
     setTodaysBills(prevBills => [newBill, ...prevBills]);
     toast({
@@ -212,9 +207,9 @@ export default function NewBillPage() {
       billDate: new Date(), 
       patientName: "", 
       doctorName: "",
-      items: [], // Important to reset the form's items array
+      items: [], 
     });
-    setCurrentBillItems([]); // This will trigger the useEffect to update form.items to []
+    setCurrentBillItems([]); 
     setSelectedDoctor("");
     setManualDoctorName("");
     setMedicationSearchTerm("");
@@ -238,7 +233,10 @@ export default function NewBillPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="billNumber">Bill Number</Label>
-                  <Input id="billNumber" value={billNumber ?? "Generating..."} readOnly className="bg-muted cursor-not-allowed" />
+                  <div className="relative">
+                    <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input id="billNumber" value={billNumber ?? "Generating..."} readOnly className="bg-muted cursor-not-allowed pl-10" />
+                  </div>
                 </div>
                 <FormField control={form.control} name="patientName" render={({ field }) => (
                   <FormItem>
@@ -260,8 +258,8 @@ export default function NewBillPage() {
                   </FormItem>
                 )} />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Hidden FormField for doctorName to be controlled by Select/Input logic */}
+              
+              <div> {/* Wrapper for Doctor Name section to allow full width */}
                 <FormField control={form.control} name="doctorName" render={({ field }) => ( <FormItem className="hidden"><FormControl><Input {...field} /></FormControl><FormMessage/></FormItem> )} />
                 <FormItem>
                   <FormLabel>Doctor Name (Select or Enter) *</FormLabel>
@@ -284,7 +282,6 @@ export default function NewBillPage() {
                       </div>
                     </FormControl>
                   )}
-                  {/* Display error message for doctorName if any */}
                   <FormMessage>{form.formState.errors.doctorName?.message}</FormMessage>
                 </FormItem>
               </div>
@@ -351,18 +348,15 @@ export default function NewBillPage() {
                 </Button>
               </div>
               
-              {/* Display error message for items array (e.g., "At least one item required") */}
-              {/* This comes from the Zod schema validation */}
               <FormField
                 control={form.control}
                 name="items"
                 render={() => (
                   <FormItem>
-                    <FormMessage />
+                    <FormMessage /> {/* Displays "At least one item required" from Zod */}
                   </FormItem>
                 )}
               />
-
 
               {currentBillItems.length > 0 && (
                 <div className="border-t pt-4">
