@@ -16,6 +16,7 @@ import { Separator } from "@/components/ui/separator";
 
 const pharmacyProfileFormSchema = z.object({
   pharmacyName: z.string().min(2, "Pharmacy name must be at least 2 characters."),
+  invoiceTitle: z.string().min(1, "Invoice title is required."),
   addressStreet: z.string().min(5, "Street address is required."),
   addressCity: z.string().min(2, "City is required."),
   addressState: z.string().min(2, "State is required."),
@@ -28,10 +29,7 @@ const pharmacyProfileFormSchema = z.object({
 
 type PharmacyProfileFormValues = z.infer<typeof pharmacyProfileFormSchema>;
 
-// Placeholder for actual data fetching/saving
 const getPharmacyProfile = (): Partial<PharmacyProfileFormValues> => {
-  // In a real app, fetch this from a database or persistent storage
-  // For now, also try to load from localStorage for persistence across sessions
   if (typeof window !== 'undefined') {
     const storedProfile = localStorage.getItem('pharmacyProfile');
     if (storedProfile) {
@@ -44,6 +42,7 @@ const getPharmacyProfile = (): Partial<PharmacyProfileFormValues> => {
   }
   return {
     pharmacyName: "MediStore Central Pharmacy",
+    invoiceTitle: "MediStore Pharmacy Invoice",
     addressStreet: "123 Health St, Suite 100",
     addressCity: "Wellnessville",
     addressState: "CA",
@@ -64,12 +63,10 @@ export default function PharmacyProfilePage() {
 
   const onSubmit = (data: PharmacyProfileFormValues) => {
     console.log("Pharmacy Profile Data Submitted:", data);
-    // In a real app, you would save this data to your backend/database
     
     if (typeof window !== 'undefined') {
       localStorage.setItem('pharmacyProfile', JSON.stringify(data));
-      localStorage.setItem('pharmacyName', data.pharmacyName); // Specifically save pharmacyName for quick access by layout
-      // Dispatch a custom event to notify the layout that the pharmacy name has changed
+      localStorage.setItem('pharmacyName', data.pharmacyName); 
       window.dispatchEvent(new CustomEvent('pharmacyNameUpdated', { detail: data.pharmacyName }));
     }
 
@@ -91,13 +88,22 @@ export default function PharmacyProfilePage() {
               <CardDescription>Keep your pharmacy details up to date. All fields are required.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
-              <FormField control={form.control} name="pharmacyName" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Pharmacy Name</FormLabel>
-                  <FormControl><Input placeholder="e.g., Main Street Pharmacy" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField control={form.control} name="pharmacyName" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Pharmacy Name</FormLabel>
+                    <FormControl><Input placeholder="e.g., Main Street Pharmacy" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="invoiceTitle" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Default Invoice Title</FormLabel>
+                    <FormControl><Input placeholder="e.g., Tax Invoice, Pharmacy Bill" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
 
               <Separator />
               <div>

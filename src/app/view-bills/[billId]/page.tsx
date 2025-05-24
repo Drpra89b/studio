@@ -11,13 +11,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, FileText, Printer, Share2, Home, Phone, Mail, ShieldCheck } from "lucide-react";
-import { Bill, getBillById } from "../page"; // Importing from the parent page for sample data
+import { Bill, getBillById } from "../page"; 
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
-// Define a type for the pharmacy profile data we expect from localStorage
 interface PharmacyProfileData {
   pharmacyName: string;
+  invoiceTitle?: string; 
   addressStreet: string;
   addressCity: string;
   addressState: string;
@@ -25,7 +25,6 @@ interface PharmacyProfileData {
   contactNumber: string;
   emailAddress: string;
   licenseNumber: string;
-  // pharmacistInCharge might also be in profile but not typically on bill header
 }
 
 
@@ -34,7 +33,7 @@ export default function BillDetailPage() {
   const router = useRouter();
   const { toast } = useToast();
   const billId = params.billId as string;
-  const [bill, setBill] = React.useState<Bill | null | undefined>(undefined); // undefined for loading, null for not found
+  const [bill, setBill] = React.useState<Bill | null | undefined>(undefined); 
   const [pharmacyProfile, setPharmacyProfile] = React.useState<PharmacyProfileData | null>(null);
 
   React.useEffect(() => {
@@ -43,7 +42,6 @@ export default function BillDetailPage() {
       setBill(foundBill || null);
     }
 
-    // Load pharmacy profile from localStorage
     if (typeof window !== 'undefined') {
       const storedProfile = localStorage.getItem('pharmacyProfile');
       if (storedProfile) {
@@ -98,7 +96,7 @@ export default function BillDetailPage() {
     if (!bill || typeof window === 'undefined') return;
 
     const shareData = {
-      title: `MediStore Bill: ${bill.billNumber}`,
+      title: `${pharmacyProfile?.invoiceTitle || 'Bill'} from ${pharmacyProfile?.pharmacyName || 'MediStore'}: ${bill.billNumber}`,
       text: `View details for bill ${bill.billNumber} issued to ${bill.patientName}. Amount: ${formatCurrency(bill.totalAmount)}`,
       url: window.location.href,
     };
@@ -146,10 +144,12 @@ export default function BillDetailPage() {
     }
   };
 
+  const displayedInvoiceTitle = pharmacyProfile?.invoiceTitle || "Invoice";
+
 
   return (
     <div className="space-y-6 print:space-y-0">
-      <PageHeader title={`Bill Details: ${bill.billNumber}`} description={`Viewing details for bill issued to ${bill.patientName}.`} icon={FileText} className="print:hidden" />
+      <PageHeader title={`${displayedInvoiceTitle}: ${bill.billNumber}`} description={`Viewing details for bill issued to ${bill.patientName}.`} icon={FileText} className="print:hidden" />
 
       <div className="flex flex-col md:flex-row gap-4 items-start print:hidden">
         <Button onClick={() => router.push("/view-bills")} variant="outline" className="w-full md:w-auto">
@@ -185,7 +185,7 @@ export default function BillDetailPage() {
         <CardHeader className="bg-muted/30 p-6 print:bg-transparent print:px-0 print:pt-2">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
             <div>
-              <CardTitle className="text-xl print:text-lg">Invoice #{bill.billNumber}</CardTitle>
+              <CardTitle className="text-xl print:text-lg">{displayedInvoiceTitle} #{bill.billNumber}</CardTitle>
               <CardDescription className="print:text-xs">Date Issued: {formatDate(bill.date)}</CardDescription>
             </div>
             <Badge
@@ -281,4 +281,3 @@ export default function BillDetailPage() {
     </div>
   );
 }
-

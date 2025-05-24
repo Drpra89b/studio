@@ -18,6 +18,7 @@ export default function SettingsPage() {
 
   React.useEffect(() => {
     setMounted(true);
+    // Initialize dark mode state based on current document class
     setIsDarkMode(document.documentElement.classList.contains('dark'));
   }, []);
 
@@ -31,8 +32,6 @@ export default function SettingsPage() {
   };
 
   if (!mounted) {
-    // To prevent hydration mismatch, don't render the switch until mounted client-side
-    // You could show a loader here if desired
     return null; 
   }
 
@@ -44,8 +43,8 @@ export default function SettingsPage() {
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Printer className="h-5 w-5 text-primary" /> Printer & Invoice</CardTitle>
-              <CardDescription>Customize printing and invoice settings.</CardDescription>
+              <CardTitle className="flex items-center gap-2"><Printer className="h-5 w-5 text-primary" /> Printer Settings</CardTitle>
+              <CardDescription>Customize printing options.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -61,13 +60,9 @@ export default function SettingsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="invoiceTitle">Invoice Title</Label>
-                <Input id="invoiceTitle" placeholder="e.g., Pharmacy Invoice, Tax Invoice" defaultValue="MediStore Pharmacy Invoice" />
-              </div>
                <div className="flex items-center space-x-2 pt-2">
                 <Switch id="showLogoOnInvoice" />
-                <Label htmlFor="showLogoOnInvoice" className="cursor-pointer">Show Logo on Invoice</Label>
+                <Label htmlFor="showLogoOnInvoice" className="cursor-pointer">Show Pharmacy Logo on Invoice</Label>
               </div>
             </CardContent>
           </Card>
