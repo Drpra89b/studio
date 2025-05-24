@@ -2,9 +2,9 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link"; // Added Link import
+// Link import is removed as it's no longer used
 import PageHeader from "@/components/shared/page-header";
-import { Settings as SettingsIcon, Printer, FileText, Users, Database, Palette, UserCog } from "lucide-react";
+import { Settings as SettingsIcon, Printer, FileText, Database, Palette } from "lucide-react"; // UserCog removed
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -34,12 +34,9 @@ export default function SettingsPage() {
   };
 
   if (!mounted) {
-    // Render nothing or a placeholder until the component is mounted
-    // This helps avoid hydration mismatches related to localStorage/document access
     return (
       <div className="space-y-6">
          <PageHeader title="Settings" description="Configure application preferences and options." icon={SettingsIcon} />
-         {/* You can add skeletons here if preferred */}
       </div>
     );
   }
@@ -75,22 +72,9 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><UserCog className="h-5 w-5 text-primary" /> Staff Permissions</CardTitle>
-              <CardDescription>Manage default roles and permissions for staff members.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-               <p className="text-sm text-muted-foreground">
-                Configure detailed staff roles and permissions.
-              </p>
-              <Button variant="outline" asChild>
-                <Link href="/settings/roles-permissions">Manage Roles & Permissions</Link>
-              </Button>
-            </CardContent>
-          </Card>
           
+          {/* Staff Permissions Card Removed */}
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5 text-primary" /> Doctor Management</CardTitle>
@@ -156,7 +140,6 @@ export default function SettingsPage() {
                       checked={isDarkMode}
                     />
                 </div>
-                {/* More appearance settings can be added here */}
             </CardContent>
           </Card>
         </div>
