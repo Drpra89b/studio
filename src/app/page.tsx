@@ -20,7 +20,8 @@ import { useToast } from "@/hooks/use-toast";
 import type { BillItem } from "@/app/view-bills/page"; 
 
 const DOCTORS_STORAGE_KEY = "managedDoctorsList";
-const DEFAULT_DOCTORS_FALLBACK = ["Dr. Other (Manual Entry)"];
+const MANUAL_ENTRY_DOCTOR = "Dr. Other (Manual Entry)";
+const DEFAULT_DOCTORS_FALLBACK = [MANUAL_ENTRY_DOCTOR];
 
 
 const billItemSchema = z.object({
@@ -98,27 +99,30 @@ export default function NewBillPage() {
 
     if (typeof window !== 'undefined') {
       const storedDoctors = localStorage.getItem(DOCTORS_STORAGE_KEY);
+      let finalDoctorList: string[] = [...DEFAULT_DOCTORS_FALLBACK]; // Start with the default containing manual entry
+
       if (storedDoctors) {
         try {
-          const parsedDoctors = JSON.parse(storedDoctors);
-          if (Array.isArray(parsedDoctors) && parsedDoctors.length > 0) {
-            setDoctorsForDropdown(parsedDoctors);
-          } else {
-            setDoctorsForDropdown(DEFAULT_DOCTORS_FALLBACK);
+          const parsedDoctorsFromStorage: string[] = JSON.parse(storedDoctors);
+          if (Array.isArray(parsedDoctorsFromStorage) && parsedDoctorsFromStorage.length > 0) {
+            // Merge stored doctors with the default manual entry, ensuring uniqueness
+            const combinedDoctors = new Set([...parsedDoctorsFromStorage, ...DEFAULT_DOCTORS_FALLBACK]);
+            finalDoctorList = Array.from(combinedDoctors);
           }
+          // If parsedDoctorsFromStorage is empty or not an array, finalDoctorList remains DEFAULT_DOCTORS_FALLBACK
         } catch (e) {
           console.error("Failed to parse doctors list from localStorage for New Bill page", e);
-          setDoctorsForDropdown(DEFAULT_DOCTORS_FALLBACK);
+          // On error, finalDoctorList remains DEFAULT_DOCTORS_FALLBACK (which is already set)
         }
-      } else {
-        setDoctorsForDropdown(DEFAULT_DOCTORS_FALLBACK);
       }
+      // If storedDoctors is null (nothing in localStorage), finalDoctorList remains DEFAULT_DOCTORS_FALLBACK (already set)
+      setDoctorsForDropdown(finalDoctorList);
     }
   }, [form]);
 
   const handleDoctorSelect = (value: string) => {
     setSelectedDoctor(value);
-    if (value !== "Dr. Other (Manual Entry)") {
+    if (value !== MANUAL_ENTRY_DOCTOR) {
       form.setValue("doctorName", value, { shouldValidate: true });
       setManualDoctorName("");
     } else {
@@ -128,7 +132,7 @@ export default function NewBillPage() {
 
   const handleManualDoctorNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setManualDoctorName(e.target.value);
-    if (selectedDoctor === "Dr. Other (Manual Entry)") {
+    if (selectedDoctor === MANUAL_ENTRY_DOCTOR) {
       form.setValue("doctorName", e.target.value, { shouldValidate: true });
     }
   };
@@ -288,7 +292,7 @@ export default function NewBillPage() {
                       {doctorsForDropdown.map(doc => (<SelectItem key={doc} value={doc}>{doc}</SelectItem>))}
                     </SelectContent>
                   </Select>
-                  {selectedDoctor === "Dr. Other (Manual Entry)" && (
+                  {selectedDoctor === MANUAL_ENTRY_DOCTOR && (
                     <FormControl className="mt-2">
                       <div className="relative">
                         <BriefcaseMedical className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
