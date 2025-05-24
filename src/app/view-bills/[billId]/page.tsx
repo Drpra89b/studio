@@ -198,7 +198,7 @@ export default function BillDetailPage() {
                 "text-sm mt-2 sm:mt-0 px-3 py-1 print:text-xs",
                 bill.status === "Paid" && "bg-green-500 hover:bg-green-600 text-white print:bg-green-500 print:text-white",
                 bill.status === "Pending" && "bg-yellow-500 hover:bg-yellow-600 text-black print:bg-yellow-500 print:text-black",
-                bill.status === "Cancelled" && "bg-red-500 hover:bg-red-600 text-white print:bg-red-500 print:text-white"
+                bill.status === "Cancelled" && "bg-red-500 hover:bg-red-500 text-white print:bg-red-500 print:text-white"
               )}
             >
               {bill.status}
@@ -210,6 +210,7 @@ export default function BillDetailPage() {
             <div>
               <h3 className="font-semibold text-foreground mb-1 print:text-sm">Billed To:</h3>
               <p className="text-muted-foreground print:text-xs">{bill.patientName}</p>
+              {bill.patientMobileNumber && <p className="text-muted-foreground print:text-xs"><Phone className="inline h-3 w-3 mr-1" />{bill.patientMobileNumber}</p>}
             </div>
             <div>
               <h3 className="font-semibold text-foreground mb-1 print:text-sm">Prescribed By:</h3>
@@ -281,3 +282,4 @@ export default function BillDetailPage() {
     </div>
   );
 }
+

@@ -4,7 +4,7 @@
 import * as React from "react";
 import Link from "next/link";
 import PageHeader from "@/components/shared/page-header";
-import { ListOrdered, Search, FileText } from "lucide-react";
+import { ListOrdered, Search, FileText, Phone } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,15 +17,16 @@ export interface BillItem {
   medicationName: string;
   quantity: number;
   pricePerUnit: number;
-  totalPrice: number; // Calculated as quantity * pricePerUnit
+  totalPrice: number; 
 }
 
 export interface Bill {
   id: string;
   billNumber: string;
   patientName: string;
+  patientMobileNumber?: string;
   doctorName: string;
-  date: string; // ISO string for consistency, format for display
+  date: string; 
   totalAmount: number;
   status: "Paid" | "Pending" | "Cancelled";
   items: BillItem[];
@@ -38,6 +39,7 @@ const sampleBills: Bill[] = [
     id: "1",
     billNumber: "BILL-789012",
     patientName: "Alice Wonderland",
+    patientMobileNumber: "9876543210",
     doctorName: "Dr. Smith",
     date: new Date("2024-07-20").toISOString(),
     totalAmount: 1255.50,
@@ -53,6 +55,7 @@ const sampleBills: Bill[] = [
     id: "2",
     billNumber: "BILL-789013",
     patientName: "Bob The Builder",
+    patientMobileNumber: "8765432109",
     doctorName: "Dr. Jones",
     date: new Date("2024-07-20").toISOString(),
     totalAmount: 750.00,
@@ -80,6 +83,7 @@ const sampleBills: Bill[] = [
     id: "4",
     billNumber: "BILL-789015",
     patientName: "Diana Prince",
+    patientMobileNumber: "7654321098",
     doctorName: "Dr. Brown",
     date: new Date("2024-07-19").toISOString(),
     totalAmount: 552.00,
@@ -103,7 +107,6 @@ const sampleBills: Bill[] = [
   },
 ];
 
-// Make sampleBills exportable so it can be used by the detail page
 export const getSampleBills = () => sampleBills;
 export const getBillById = (id: string): Bill | undefined => sampleBills.find(bill => bill.id === id);
 
@@ -115,7 +118,8 @@ export default function ViewBillsPage() {
   React.useEffect(() => {
     const results = sampleBills.filter(bill =>
       bill.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bill.billNumber.toLowerCase().includes(searchTerm.toLowerCase())
+      bill.billNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (bill.patientMobileNumber && bill.patientMobileNumber.includes(searchTerm))
     );
     setFilteredBills(results);
   }, [searchTerm]);
@@ -141,10 +145,10 @@ export default function ViewBillsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder="Search by patient name or bill number..."
+                placeholder="Search by patient name, mobile, or bill number..."
                 value={searchTerm}
                 onChange={handleSearchChange}
-                className="w-full max-w-sm pl-10"
+                className="w-full max-w-md pl-10"
               />
             </div>
           </div>
@@ -161,6 +165,7 @@ export default function ViewBillsPage() {
                   <TableRow>
                     <TableHead>Bill No.</TableHead>
                     <TableHead>Patient Name</TableHead>
+                    <TableHead>Mobile</TableHead>
                     <TableHead>Doctor Name</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Status</TableHead>
@@ -173,6 +178,7 @@ export default function ViewBillsPage() {
                     <TableRow key={bill.id}>
                       <TableCell className="font-medium">{bill.billNumber}</TableCell>
                       <TableCell>{bill.patientName}</TableCell>
+                      <TableCell>{bill.patientMobileNumber || '-'}</TableCell>
                       <TableCell>{bill.doctorName}</TableCell>
                       <TableCell>{formatDate(bill.date)}</TableCell>
                       <TableCell>
@@ -211,3 +217,4 @@ export default function ViewBillsPage() {
 }
 
     
+

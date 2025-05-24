@@ -5,7 +5,7 @@ import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { FilePlus2, User, BriefcaseMedical, Trash2, PlusCircle, Search as SearchIcon, XCircle, Hash } from "lucide-react";
+import { FilePlus2, User, BriefcaseMedical, Trash2, PlusCircle, Search as SearchIcon, XCircle, Hash, Phone } from "lucide-react";
 
 import PageHeader from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import type { BillItem } from "@/app/view-bills/page"; 
+import type { BillItem } from "@/app/view-bills/page";
 
 const DOCTORS_STORAGE_KEY = "managedDoctorsList";
 const MANUAL_ENTRY_DOCTOR = "Dr. Other (Manual Entry)";
@@ -32,6 +32,9 @@ const billItemSchema = z.object({
 
 const billFormSchema = z.object({
   patientName: z.string().min(2, { message: "Patient name must be at least 2 characters." }),
+  patientMobileNumber: z.string().optional().refine(val => !val || val.length === 0 || (val.length >= 10 && /^\d+$/.test(val)), {
+    message: "Mobile number must be at least 10 digits and contain only numbers.",
+  }),
   doctorName: z.string().min(2, { message: "Doctor name must be at least 2 characters." }),
   billDate: z.date({ required_error: "Bill date is required." }).optional().or(z.null()),
   items: z.array(billItemSchema).min(1, "At least one medication item is required."),
@@ -43,6 +46,7 @@ export interface TodaysBill {
   id: string;
   billNumber: string;
   patientName: string;
+  patientMobileNumber?: string;
   doctorName: string;
   date: string;
   totalAmount: number;
@@ -87,6 +91,7 @@ export default function NewBillPage() {
     resolver: zodResolver(billFormSchema),
     defaultValues: {
       patientName: "",
+      patientMobileNumber: "",
       doctorName: "",
       billDate: undefined, 
       items: [], 
@@ -99,24 +104,21 @@ export default function NewBillPage() {
 
     if (typeof window !== 'undefined') {
       const storedDoctors = localStorage.getItem(DOCTORS_STORAGE_KEY);
-      let finalDoctorList: string[] = [...DEFAULT_DOCTORS_FALLBACK]; // Start with the default containing manual entry
+      let finalDoctorList: string[] = []; 
 
       if (storedDoctors) {
         try {
           const parsedDoctorsFromStorage: string[] = JSON.parse(storedDoctors);
-          if (Array.isArray(parsedDoctorsFromStorage) && parsedDoctorsFromStorage.length > 0) {
-            // Merge stored doctors with the default manual entry, ensuring uniqueness
-            const combinedDoctors = new Set([...parsedDoctorsFromStorage, ...DEFAULT_DOCTORS_FALLBACK]);
-            finalDoctorList = Array.from(combinedDoctors);
+          if (Array.isArray(parsedDoctorsFromStorage)) {
+            finalDoctorList = parsedDoctorsFromStorage;
           }
-          // If parsedDoctorsFromStorage is empty or not an array, finalDoctorList remains DEFAULT_DOCTORS_FALLBACK
         } catch (e) {
           console.error("Failed to parse doctors list from localStorage for New Bill page", e);
-          // On error, finalDoctorList remains DEFAULT_DOCTORS_FALLBACK (which is already set)
         }
       }
-      // If storedDoctors is null (nothing in localStorage), finalDoctorList remains DEFAULT_DOCTORS_FALLBACK (already set)
-      setDoctorsForDropdown(finalDoctorList);
+      // Ensure "Dr. Other (Manual Entry)" is always present and unique
+      const combinedDoctors = new Set([MANUAL_ENTRY_DOCTOR, ...finalDoctorList]);
+      setDoctorsForDropdown(Array.from(combinedDoctors));
     }
   }, [form]);
 
@@ -212,6 +214,7 @@ export default function NewBillPage() {
       id: Date.now().toString(),
       billNumber: billNumber,
       patientName: data.patientName,
+      patientMobileNumber: data.patientMobileNumber,
       doctorName: data.doctorName,
       date: finalBillDate.toLocaleDateString('en-CA'), 
       totalAmount: grandTotal,
@@ -226,6 +229,7 @@ export default function NewBillPage() {
     form.reset({ 
       billDate: new Date(), 
       patientName: "", 
+      patientMobileNumber: "",
       doctorName: "",
       items: [], 
     });
@@ -258,6 +262,13 @@ export default function NewBillPage() {
                     <Input id="billNumber" value={billNumber ?? "Generating..."} readOnly className="bg-muted cursor-not-allowed pl-10" />
                   </div>
                 </div>
+                 <FormField control={form.control} name="billDate" render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel className="mb-1.5">Bill Date *</FormLabel>
+                    <DatePicker date={field.value || undefined} setDate={field.onChange} className="h-10" />
+                    <FormMessage />
+                  </FormItem>
+                )} />
                 <FormField control={form.control} name="patientName" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Patient Name *</FormLabel>
@@ -270,16 +281,21 @@ export default function NewBillPage() {
                     <FormMessage />
                   </FormItem>
                 )} />
-                <FormField control={form.control} name="billDate" render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel className="mb-1.5">Bill Date *</FormLabel>
-                    <DatePicker date={field.value || undefined} setDate={field.onChange} className="h-10" />
+                <FormField control={form.control} name="patientMobileNumber" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Patient Mobile Number</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input type="tel" placeholder="Enter mobile number" {...field} className="pl-10" />
+                      </div>
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
               
                 <FormField control={form.control} name="doctorName" render={({ field }) => ( <FormItem className="hidden"><FormControl><Input {...field} /></FormControl><FormMessage/></FormItem> )} />
-                <FormItem>
+                <FormItem className="md:col-span-2">
                   <FormLabel>Doctor Name (Select or Enter) *</FormLabel>
                   <Select onValueChange={handleDoctorSelect} value={selectedDoctor}>
                     <FormControl>
@@ -440,6 +456,7 @@ export default function NewBillPage() {
                   <TableRow>
                     <TableHead>Bill No.</TableHead>
                     <TableHead>Patient Name</TableHead>
+                    <TableHead>Mobile</TableHead>
                     <TableHead>Doctor Name</TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
@@ -450,6 +467,7 @@ export default function NewBillPage() {
                     <TableRow key={bill.id}>
                       <TableCell className="font-medium">{bill.billNumber}</TableCell>
                       <TableCell>{bill.patientName}</TableCell>
+                      <TableCell>{bill.patientMobileNumber || '-'}</TableCell>
                       <TableCell>{bill.doctorName}</TableCell>
                       <TableCell>{bill.date}</TableCell>
                       <TableCell className="text-right">₹{bill.totalAmount.toFixed(2)}</TableCell>
