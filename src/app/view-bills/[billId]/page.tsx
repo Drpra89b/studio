@@ -11,7 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, FileText, Printer, Share2, Home, Phone, Mail, ShieldCheck } from "lucide-react";
-import { Bill, getBillById } from "../page"; 
+import type { Bill, BillItem } from "../page"; 
+import { getBillById } from "../page"; 
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -25,6 +26,7 @@ interface PharmacyProfileData {
   contactNumber: string;
   emailAddress: string;
   licenseNumber: string;
+  gstin?: string;
 }
 
 
@@ -49,7 +51,7 @@ export default function BillDetailPage() {
           setPharmacyProfile(JSON.parse(storedProfile));
         } catch (e) {
           console.error("Failed to parse pharmacy profile from localStorage for bill header", e);
-          setPharmacyProfile(null);
+          setPharmacyProfile(null); // Set to null on error to avoid rendering issues
         }
       }
     }
@@ -63,7 +65,7 @@ export default function BillDetailPage() {
     return amount.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
-  if (bill === undefined) {
+  if (bill === undefined) { // Initial loading state
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)]">
         <FileText className="h-16 w-16 text-muted-foreground animate-pulse mb-4" />
@@ -72,7 +74,7 @@ export default function BillDetailPage() {
     );
   }
 
-  if (!bill) {
+  if (!bill) { // Bill not found after attempting to load
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)]">
         <PageHeader title="Bill Not Found" description="The requested bill could not be found." icon={FileText} />
@@ -176,9 +178,15 @@ export default function BillDetailPage() {
               <span>|</span>
               <span><Mail className="inline h-3 w-3 mr-1" />{pharmacyProfile.emailAddress}</span>
             </div>
-            <p className="text-xs text-muted-foreground text-center print:text-xs mt-1">
-              <ShieldCheck className="inline h-3 w-3 mr-1" />License No: {pharmacyProfile.licenseNumber}
-            </p>
+            <div className="text-xs text-muted-foreground text-center print:text-xs mt-1 space-x-2">
+                 <span><ShieldCheck className="inline h-3 w-3 mr-1" />License No: {pharmacyProfile.licenseNumber}</span>
+                {bill.isTaxApplied && pharmacyProfile.gstin && (
+                    <>
+                        <span>|</span>
+                        <span>GSTIN: {pharmacyProfile.gstin}</span>
+                    </>
+                )}
+            </div>
           </div>
         )}
 
@@ -234,7 +242,13 @@ export default function BillDetailPage() {
                   <TableRow className="print:border-b print:border-gray-300">
                     <TableHead className="print:py-1 print:px-2">Medication</TableHead>
                     <TableHead className="text-center print:py-1 print:px-2">Qty</TableHead>
-                    <TableHead className="text-right print:py-1 print:px-2">Price/Unit</TableHead>
+                    <TableHead className="text-right print:py-1 print:px-2">Price/Unit{bill.isTaxApplied ? " (Pre-Tax)" : ""}</TableHead>
+                    {bill.isTaxApplied && bill.gstRateApplied !== undefined && (
+                        <>
+                            <TableHead className="text-right print:py-1 print:px-2">GST ({bill.gstRateApplied}%)</TableHead>
+                            <TableHead className="text-right print:py-1 print:px-2">GST Amt.</TableHead>
+                        </>
+                    )}
                     <TableHead className="text-right print:py-1 print:px-2">Total</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -244,6 +258,12 @@ export default function BillDetailPage() {
                       <TableCell className="font-medium print:py-1 print:px-2">{item.medicationName}</TableCell>
                       <TableCell className="text-center print:py-1 print:px-2">{item.quantity}</TableCell>
                       <TableCell className="text-right print:py-1 print:px-2">{formatCurrency(item.pricePerUnit)}</TableCell>
+                       {bill.isTaxApplied && bill.gstRateApplied !== undefined && (
+                           <>
+                               <TableCell className="text-right print:py-1 print:px-2">{item.taxRate?.toFixed(2) || bill.gstRateApplied?.toFixed(2)}%</TableCell>
+                               <TableCell className="text-right print:py-1 print:px-2">{formatCurrency(item.gstAmount || 0)}</TableCell>
+                           </>
+                       )}
                       <TableCell className="text-right print:py-1 print:px-2">{formatCurrency(item.totalPrice)}</TableCell>
                     </TableRow>
                   ))}
@@ -255,7 +275,19 @@ export default function BillDetailPage() {
           <Separator className="print:my-2"/>
           
           <div className="flex justify-end">
-            <div className="w-full max-w-xs space-y-2 text-sm print:max-w-none print:w-auto print:ml-auto">
+            <div className="w-full max-w-xs space-y-1 text-sm print:max-w-none print:w-auto print:ml-auto text-right">
+              {bill.isTaxApplied && bill.subTotal !== undefined && bill.totalGstAmount !== undefined && (
+                <>
+                  <div className="flex justify-between">
+                    <span>Subtotal (Pre-Tax):</span>
+                    <span>{formatCurrency(bill.subTotal)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Total GST ({bill.gstRateApplied?.toFixed(2) || 0}%):</span>
+                    <span>{formatCurrency(bill.totalGstAmount)}</span>
+                  </div>
+                </>
+              )}
               <div className="flex justify-between font-semibold text-lg print:text-base">
                 <span>Grand Total:</span>
                 <span>{formatCurrency(bill.totalAmount)}</span>

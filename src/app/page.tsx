@@ -17,18 +17,33 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import type { BillItem } from "@/app/view-bills/page";
+// Note: BillItem from view-bills/page.tsx might need adjustment for tax fields
+// For now, NewBill page will use its own item structure internally and map for TodaysBill
 
 const DOCTORS_STORAGE_KEY = "managedDoctorsList";
 const MANUAL_ENTRY_DOCTOR = "Dr. Other (Manual Entry)";
 const DEFAULT_DOCTORS_FALLBACK = [MANUAL_ENTRY_DOCTOR];
+const IS_TAX_ENABLED_KEY = "isTaxEnabled";
+const DEFAULT_GST_RATE_KEY = "defaultGstRate";
 
 
-const billItemSchema = z.object({
+interface CurrentBillItem {
+  id: string;
+  medicationName: string;
+  quantity: number;
+  pricePerUnit: number; // This will be PRE-TAX if taxes are enabled
+  taxRate: number; // Percentage
+  gstAmount: number;
+  totalPrice: number; // This will be POST-TAX if taxes are enabled
+}
+
+const billItemSchemaForForm = z.object({ // Schema for items array in form
   medicationName: z.string().min(1, "Medication name is required."),
   quantity: z.coerce.number().int().min(1, "Quantity must be at least 1."),
   pricePerUnit: z.coerce.number().min(0.01, "Price must be positive."),
+  // taxRate and gstAmount are calculated, not directly input into this specific schema part of the form
 });
+
 
 const billFormSchema = z.object({
   patientName: z.string().min(2, { message: "Patient name must be at least 2 characters." }),
@@ -37,7 +52,7 @@ const billFormSchema = z.object({
   }),
   doctorName: z.string().min(2, { message: "Doctor name must be at least 2 characters." }),
   billDate: z.date({ required_error: "Bill date is required." }).optional().or(z.null()),
-  items: z.array(billItemSchema).min(1, "At least one medication item is required."),
+  items: z.array(billItemSchemaForForm).min(1, "At least one medication item is required."),
 });
 
 type BillFormValues = z.infer<typeof billFormSchema>;
@@ -49,24 +64,28 @@ export interface TodaysBill {
   patientMobileNumber?: string;
   doctorName: string;
   date: string;
-  totalAmount: number;
-  items: BillItem[];
+  items: CurrentBillItem[]; // Use the detailed item structure
+  subTotal: number;
+  totalGstAmount: number;
+  totalAmount: number; // Final grand total
+  isTaxApplied: boolean;
+  gstRateApplied?: number; // The global rate used for this bill
 }
 
 interface SampleMedication {
   id: string;
   name: string;
-  pricePerUnit: number;
+  pricePerUnit: number; // Assumed to be pre-tax
 }
 
 const sampleMedications: SampleMedication[] = [
-  { id: 'med1', name: 'Paracetamol 500mg Tablet', pricePerUnit: 25.50 },
-  { id: 'med2', name: 'Amoxicillin 250mg Capsule', pricePerUnit: 50.75 },
-  { id: 'med3', name: 'Ibuprofen 200mg Syrup', pricePerUnit: 30.00 },
-  { id: 'med4', name: 'Vitamin C Tablets (Chewable)', pricePerUnit: 12.00 },
-  { id: 'med5', name: 'Cough Syrup (Herbal)', pricePerUnit: 80.00 },
-  { id: 'med6', name: 'Aspirin 75mg', pricePerUnit: 15.00 },
-  { id: 'med7', name: 'Omeprazole 20mg', pricePerUnit: 40.00 },
+  { id: 'med1', name: 'Paracetamol 500mg Tablet', pricePerUnit: 20.00 },
+  { id: 'med2', name: 'Amoxicillin 250mg Capsule', pricePerUnit: 45.00 },
+  { id: 'med3', name: 'Ibuprofen 200mg Syrup', pricePerUnit: 25.00 },
+  { id: 'med4', name: 'Vitamin C Tablets (Chewable)', pricePerUnit: 10.00 },
+  { id: 'med5', name: 'Cough Syrup (Herbal)', pricePerUnit: 70.00 },
+  { id: 'med6', name: 'Aspirin 75mg', pricePerUnit: 12.00 },
+  { id: 'med7', name: 'Omeprazole 20mg', pricePerUnit: 35.00 },
 ];
 
 
@@ -79,12 +98,15 @@ export default function NewBillPage() {
   const [medicationSearchResults, setMedicationSearchResults] = React.useState<SampleMedication[]>([]);
   const [selectedMedication, setSelectedMedication] = React.useState<SampleMedication | null>(null);
   const [currentQuantity, setCurrentQuantity] = React.useState<number | string>(1);
-  const [currentBillItems, setCurrentBillItems] = React.useState<BillItem[]>([]);
+  const [currentBillItems, setCurrentBillItems] = React.useState<CurrentBillItem[]>([]);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
 
   const [doctorsForDropdown, setDoctorsForDropdown] = React.useState<string[]>(DEFAULT_DOCTORS_FALLBACK);
   const [selectedDoctor, setSelectedDoctor] = React.useState<string>("");
   const [manualDoctorName, setManualDoctorName] = React.useState<string>("");
+
+  const [isTaxEnabled, setIsTaxEnabled] = React.useState(false);
+  const [defaultGstRate, setDefaultGstRate] = React.useState(0);
 
 
   const form = useForm<BillFormValues>({
@@ -103,9 +125,13 @@ export default function NewBillPage() {
     setBillNumber(`BILL-${Date.now().toString().slice(-6)}`);
 
     if (typeof window !== 'undefined') {
+      const storedTaxEnabled = localStorage.getItem(IS_TAX_ENABLED_KEY);
+      setIsTaxEnabled(storedTaxEnabled === 'true');
+      const storedGstRate = localStorage.getItem(DEFAULT_GST_RATE_KEY);
+      setDefaultGstRate(storedGstRate ? parseFloat(storedGstRate) : 0);
+      
       const storedDoctors = localStorage.getItem(DOCTORS_STORAGE_KEY);
       let finalDoctorList: string[] = []; 
-
       if (storedDoctors) {
         try {
           const parsedDoctorsFromStorage: string[] = JSON.parse(storedDoctors);
@@ -116,9 +142,8 @@ export default function NewBillPage() {
           console.error("Failed to parse doctors list from localStorage for New Bill page", e);
         }
       }
-      // Ensure "Dr. Other (Manual Entry)" is always present and unique
-      const combinedDoctors = new Set([MANUAL_ENTRY_DOCTOR, ...finalDoctorList]);
-      setDoctorsForDropdown(Array.from(combinedDoctors));
+      const combinedDoctors = Array.from(new Set([MANUAL_ENTRY_DOCTOR, ...finalDoctorList, ...DEFAULT_DOCTORS_FALLBACK]));
+      setDoctorsForDropdown(combinedDoctors);
     }
   }, [form]);
 
@@ -168,12 +193,24 @@ export default function NewBillPage() {
       return;
     }
 
-    const newItem: BillItem = {
+    const pricePerUnit = selectedMedication.pricePerUnit;
+    let itemGstAmount = 0;
+    let itemTotalPrice = quantityNum * pricePerUnit;
+    const itemTaxRate = isTaxEnabled ? defaultGstRate : 0;
+
+    if (isTaxEnabled && defaultGstRate > 0) {
+      itemGstAmount = (itemTotalPrice * defaultGstRate) / 100;
+      itemTotalPrice += itemGstAmount;
+    }
+
+    const newItem: CurrentBillItem = {
       id: `item-${Date.now()}`, 
       medicationName: selectedMedication.name,
       quantity: quantityNum,
-      pricePerUnit: selectedMedication.pricePerUnit,
-      totalPrice: quantityNum * selectedMedication.pricePerUnit,
+      pricePerUnit: pricePerUnit, // pre-tax
+      taxRate: itemTaxRate,
+      gstAmount: itemGstAmount,
+      totalPrice: itemTotalPrice, // post-tax
     };
     setCurrentBillItems(prevItems => [...prevItems, newItem]);
 
@@ -189,15 +226,21 @@ export default function NewBillPage() {
     setCurrentBillItems(prevItems => prevItems.filter(item => item.id !== itemId));
   };
 
-  const grandTotal = React.useMemo(() => {
-    return currentBillItems.reduce((total, item) => total + item.totalPrice, 0);
+  const { subTotal, totalGstAmount, grandTotal } = React.useMemo(() => {
+    const sub = currentBillItems.reduce((acc, item) => acc + (item.quantity * item.pricePerUnit), 0);
+    const gst = currentBillItems.reduce((acc, item) => acc + item.gstAmount, 0);
+    return {
+      subTotal: sub,
+      totalGstAmount: gst,
+      grandTotal: sub + gst,
+    };
   }, [currentBillItems]);
 
   React.useEffect(() => {
     const itemsForFormValidation = currentBillItems.map(item => ({
       medicationName: item.medicationName,
       quantity: item.quantity,
-      pricePerUnit: item.pricePerUnit,
+      pricePerUnit: item.pricePerUnit, // This is pre-tax price
     }));
     form.setValue("items", itemsForFormValidation, { shouldValidate: true });
   }, [currentBillItems, form]);
@@ -217,8 +260,12 @@ export default function NewBillPage() {
       patientMobileNumber: data.patientMobileNumber,
       doctorName: data.doctorName,
       date: finalBillDate.toLocaleDateString('en-CA'), 
+      items: currentBillItems,
+      subTotal: subTotal,
+      totalGstAmount: totalGstAmount,
       totalAmount: grandTotal,
-      items: currentBillItems, 
+      isTaxApplied: isTaxEnabled,
+      gstRateApplied: isTaxEnabled ? defaultGstRate : undefined,
     };
     setTodaysBills(prevBills => [newBill, ...prevBills]);
     toast({
@@ -253,8 +300,7 @@ export default function NewBillPage() {
               <CardTitle>Bill Details</CardTitle>
               <CardDescription>Fill in the patient and doctor information.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="billNumber">Bill Number</Label>
                   <div className="relative">
@@ -295,7 +341,7 @@ export default function NewBillPage() {
                 )} />
               
                 <FormField control={form.control} name="doctorName" render={({ field }) => ( <FormItem className="hidden"><FormControl><Input {...field} /></FormControl><FormMessage/></FormItem> )} />
-                <FormItem className="md:col-span-2">
+                <FormItem className="md:col-span-2"> {/* Doctor name spans both columns on md screens */}
                   <FormLabel>Doctor Name (Select or Enter) *</FormLabel>
                   <Select onValueChange={handleDoctorSelect} value={selectedDoctor}>
                     <FormControl>
@@ -318,14 +364,16 @@ export default function NewBillPage() {
                   )}
                   <FormMessage>{form.formState.errors.doctorName?.message}</FormMessage>
                 </FormItem>
-              </div>
             </CardContent>
           </Card>
 
           <Card className="mt-6">
             <CardHeader>
               <CardTitle>Medication Items *</CardTitle>
-              <CardDescription>Search, add, and manage medication items for this bill.</CardDescription>
+              <CardDescription>
+                Search, add, and manage medication items for this bill. 
+                {isTaxEnabled && ` Current GST Rate: ${defaultGstRate}%`}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_auto] gap-4 items-end p-4 border rounded-lg bg-muted/30">
@@ -358,7 +406,7 @@ export default function NewBillPage() {
                           className="p-2 hover:bg-accent cursor-pointer"
                           onClick={() => handleMedicationSelect(med)}
                         >
-                          {med.name} (₹{med.pricePerUnit.toFixed(2)})
+                          {med.name} (₹{med.pricePerUnit.toFixed(2)}{isTaxEnabled ? " pre-tax" : ""})
                         </div>
                       ))}
                     </div>
@@ -387,6 +435,7 @@ export default function NewBillPage() {
                 name="items"
                 render={() => (
                   <FormItem>
+                    {/* This FormMessage will show "At least one medication item is required." if form.items is empty on submit */}
                     <FormMessage /> 
                   </FormItem>
                 )}
@@ -399,9 +448,15 @@ export default function NewBillPage() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Medication Name</TableHead>
-                          <TableHead className="text-center">Quantity</TableHead>
-                          <TableHead className="text-right">Price/Unit</TableHead>
+                          <TableHead>Medication</TableHead>
+                          <TableHead className="text-center">Qty</TableHead>
+                          <TableHead className="text-right">Price/Unit{isTaxEnabled ? " (Pre-Tax)" : ""}</TableHead>
+                          {isTaxEnabled && (
+                            <>
+                              <TableHead className="text-right">GST ({defaultGstRate}%)</TableHead>
+                              <TableHead className="text-right">GST Amt.</TableHead>
+                            </>
+                          )}
                           <TableHead className="text-right">Total</TableHead>
                           <TableHead className="text-center">Action</TableHead>
                         </TableRow>
@@ -412,6 +467,12 @@ export default function NewBillPage() {
                             <TableCell>{item.medicationName}</TableCell>
                             <TableCell className="text-center">{item.quantity}</TableCell>
                             <TableCell className="text-right">₹{item.pricePerUnit.toFixed(2)}</TableCell>
+                            {isTaxEnabled && (
+                              <>
+                                <TableCell className="text-right">{item.taxRate.toFixed(2)}%</TableCell>
+                                <TableCell className="text-right">₹{item.gstAmount.toFixed(2)}</TableCell>
+                              </>
+                            )}
                             <TableCell className="text-right">₹{item.totalPrice.toFixed(2)}</TableCell>
                             <TableCell className="text-center">
                               <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveItemFromBill(item.id)} className="h-8 w-8">
@@ -424,8 +485,23 @@ export default function NewBillPage() {
                     </Table>
                   </div>
                   <div className="mt-4 pt-4 border-t flex justify-end">
-                    <div className="text-lg font-semibold">
-                      Grand Total: ₹{grandTotal.toFixed(2)}
+                    <div className="w-full max-w-sm space-y-1 text-right">
+                      {isTaxEnabled && (
+                        <>
+                          <div className="flex justify-between text-md">
+                            <span>Subtotal (Pre-Tax):</span>
+                            <span>₹{subTotal.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-md">
+                            <span>Total GST ({defaultGstRate}%):</span>
+                            <span>₹{totalGstAmount.toFixed(2)}</span>
+                          </div>
+                        </>
+                      )}
+                      <div className="flex justify-between text-lg font-semibold">
+                        <span>Grand Total:</span>
+                        <span>₹{grandTotal.toFixed(2)}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -482,6 +558,4 @@ export default function NewBillPage() {
     </div>
   );
 }
-    
-
     

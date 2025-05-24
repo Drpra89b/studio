@@ -25,6 +25,9 @@ const pharmacyProfileFormSchema = z.object({
   emailAddress: z.string().email("Invalid email address."),
   licenseNumber: z.string().min(1, "License number is required."),
   pharmacistInCharge: z.string().min(2, "Pharmacist in charge name is required."),
+  gstin: z.string().optional().refine(val => !val || val.length === 15, { // GSTIN is usually 15 characters
+    message: "GSTIN must be 15 characters long if provided.",
+  }),
 });
 
 type PharmacyProfileFormValues = z.infer<typeof pharmacyProfileFormSchema>;
@@ -51,6 +54,7 @@ const getPharmacyProfile = (): Partial<PharmacyProfileFormValues> => {
     emailAddress: "contact@medistorecentral.com",
     licenseNumber: "PHARM12345X",
     pharmacistInCharge: "Dr. Emily Carter",
+    gstin: "", // Default to empty
   };
 };
 
@@ -85,20 +89,20 @@ export default function PharmacyProfilePage() {
           <Card>
             <CardHeader>
               <CardTitle>Pharmacy Information</CardTitle>
-              <CardDescription>Keep your pharmacy details up to date. All fields are required.</CardDescription>
+              <CardDescription>Keep your pharmacy details up to date. Most fields are required.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField control={form.control} name="pharmacyName" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Pharmacy Name</FormLabel>
+                    <FormLabel>Pharmacy Name *</FormLabel>
                     <FormControl><Input placeholder="e.g., Main Street Pharmacy" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="invoiceTitle" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Default Invoice Title</FormLabel>
+                    <FormLabel>Default Invoice Title *</FormLabel>
                     <FormControl><Input placeholder="e.g., Tax Invoice, Pharmacy Bill" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -111,28 +115,28 @@ export default function PharmacyProfilePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField control={form.control} name="addressStreet" render={({ field }) => (
                     <FormItem className="md:col-span-2">
-                      <FormLabel>Street Address</FormLabel>
+                      <FormLabel>Street Address *</FormLabel>
                       <FormControl><Input placeholder="e.g., 123 Main St" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="addressCity" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>City</FormLabel>
+                      <FormLabel>City *</FormLabel>
                       <FormControl><Input placeholder="e.g., Anytown" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="addressState" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>State / Province</FormLabel>
+                      <FormLabel>State / Province *</FormLabel>
                       <FormControl><Input placeholder="e.g., CA" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="addressZipCode" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Zip / Postal Code</FormLabel>
+                      <FormLabel>Zip / Postal Code *</FormLabel>
                       <FormControl><Input placeholder="e.g., 90210" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
@@ -146,14 +150,14 @@ export default function PharmacyProfilePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField control={form.control} name="contactNumber" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Contact Number</FormLabel>
+                      <FormLabel>Contact Number *</FormLabel>
                       <FormControl><Input type="tel" placeholder="e.g., (555) 123-4567" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="emailAddress" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email Address</FormLabel>
+                      <FormLabel>Email Address *</FormLabel>
                       <FormControl><Input type="email" placeholder="e.g., contact@pharmacy.com" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
@@ -163,19 +167,27 @@ export default function PharmacyProfilePage() {
 
               <Separator />
               <div>
-                <h3 className="text-lg font-medium mb-2">Professional Details</h3>
+                <h3 className="text-lg font-medium mb-2">Professional & Tax Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField control={form.control} name="licenseNumber" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Pharmacy License Number</FormLabel>
+                      <FormLabel>Pharmacy License Number *</FormLabel>
                       <FormControl><Input placeholder="e.g., PH12345678" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="pharmacistInCharge" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Pharmacist-in-Charge</FormLabel>
+                      <FormLabel>Pharmacist-in-Charge *</FormLabel>
                       <FormControl><Input placeholder="e.g., Dr. Jane Doe" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                   <FormField control={form.control} name="gstin" render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>GSTIN (Optional)</FormLabel>
+                      <FormControl><Input placeholder="e.g., 22AAAAA0000A1Z5" {...field} /></FormControl>
+                      <FormDescription>Your 15-digit Goods and Services Tax Identification Number.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -194,3 +206,4 @@ export default function PharmacyProfilePage() {
     </div>
   );
 }
+

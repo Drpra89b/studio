@@ -4,7 +4,7 @@
 import * as React from "react";
 import Link from "next/link";
 import PageHeader from "@/components/shared/page-header";
-import { ListOrdered, Search, FileText, Phone } from "lucide-react";
+import { ListOrdered, Search, FileText } from "lucide-react"; // Removed Phone as it's part of bill details
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,8 +16,10 @@ export interface BillItem {
   id: string;
   medicationName: string;
   quantity: number;
-  pricePerUnit: number;
-  totalPrice: number; 
+  pricePerUnit: number; // Pre-tax if tax applied
+  taxRate?: number; // Optional: GST rate applied to this item
+  gstAmount?: number; // Optional: GST amount for this item
+  totalPrice: number; // Post-tax if tax applied
 }
 
 export interface Bill {
@@ -27,13 +29,18 @@ export interface Bill {
   patientMobileNumber?: string;
   doctorName: string;
   date: string; 
-  totalAmount: number;
-  status: "Paid" | "Pending" | "Cancelled";
   items: BillItem[];
+  subTotal?: number; // Optional: Total before tax
+  totalGstAmount?: number; // Optional: Total GST amount for the bill
+  totalAmount: number; // Final amount (post-tax if tax applied)
+  status: "Paid" | "Pending" | "Cancelled";
   paymentMethod?: string;
   notes?: string;
+  isTaxApplied?: boolean; // Flag to indicate if tax was applied
+  gstRateApplied?: number; // The global rate used for this bill, if tax applied
 }
 
+// Sample bills updated to reflect potential tax structure
 const sampleBills: Bill[] = [
   {
     id: "1",
@@ -42,14 +49,18 @@ const sampleBills: Bill[] = [
     patientMobileNumber: "9876543210",
     doctorName: "Dr. Smith",
     date: new Date("2024-07-20").toISOString(),
-    totalAmount: 1255.50,
-    status: "Paid",
     items: [
-      { id: "item1", medicationName: "Paracetamol 500mg", quantity: 2, pricePerUnit: 250.25, totalPrice: 500.50 },
-      { id: "item2", medicationName: "Amoxicillin 250mg", quantity: 1, pricePerUnit: 755.00, totalPrice: 755.00 },
+      { id: "item1", medicationName: "Paracetamol 500mg", quantity: 2, pricePerUnit: 223.44, taxRate: 12, gstAmount: 53.62, totalPrice: 500.50 },
+      { id: "item2", medicationName: "Amoxicillin 250mg", quantity: 1, pricePerUnit: 674.11, taxRate: 12, gstAmount: 80.89, totalPrice: 755.00 },
     ],
+    subTotal: 897.55, // (2*223.44) + 674.11
+    totalGstAmount: 134.63, // 53.62 + 80.89 - slight rounding might occur if calculated from item totals
+    totalAmount: 1255.50, // Sum of item totalPrices OR subTotal + totalGstAmount
+    status: "Paid",
     paymentMethod: "Credit Card",
-    notes: "Patient requested a digital copy."
+    notes: "Patient requested a digital copy.",
+    isTaxApplied: true,
+    gstRateApplied: 12,
   },
   {
     id: "2",
@@ -58,12 +69,13 @@ const sampleBills: Bill[] = [
     patientMobileNumber: "8765432109",
     doctorName: "Dr. Jones",
     date: new Date("2024-07-20").toISOString(),
-    totalAmount: 750.00,
-    status: "Pending",
     items: [
-      { id: "item3", medicationName: "Ibuprofen 200mg", quantity: 3, pricePerUnit: 250.00, totalPrice: 750.00 },
+      { id: "item3", medicationName: "Ibuprofen 200mg", quantity: 3, pricePerUnit: 250.00, totalPrice: 750.00 }, // Assuming no tax
     ],
+    totalAmount: 750.00, // No tax, so subTotal and totalAmount are same if tax fields are absent
+    status: "Pending",
     paymentMethod: "Cash",
+    isTaxApplied: false,
   },
   {
     id: "3",
@@ -71,13 +83,17 @@ const sampleBills: Bill[] = [
     patientName: "Charlie Brown",
     doctorName: "Dr. Smith",
     date: new Date("2024-07-19").toISOString(),
+    items: [
+      { id: "item4", medicationName: "Vitamin C Tablets", quantity: 5, pricePerUnit: 90.31, taxRate: 10, gstAmount: 45.16, totalPrice: 500.75 }, // Example with different rate
+      { id: "item5", medicationName: "Cough Syrup", quantity: 2, pricePerUnit: 730.45, taxRate: 10, gstAmount: 146.09, totalPrice: 1607.00 },
+    ],
+    subTotal: 1911.95, // (5*90.31) + (2*730.45)
+    totalGstAmount: 191.25,
     totalAmount: 2107.75,
     status: "Paid",
-    items: [
-      { id: "item4", medicationName: "Vitamin C Tablets", quantity: 5, pricePerUnit: 100.15, totalPrice: 500.75 },
-      { id: "item5", medicationName: "Cough Syrup", quantity: 2, pricePerUnit: 803.50, totalPrice: 1607.00 },
-    ],
-    notes: "Follow up in a week."
+    notes: "Follow up in a week.",
+    isTaxApplied: true,
+    gstRateApplied: 10,
   },
   {
     id: "4",
@@ -86,11 +102,12 @@ const sampleBills: Bill[] = [
     patientMobileNumber: "7654321098",
     doctorName: "Dr. Brown",
     date: new Date("2024-07-19").toISOString(),
-    totalAmount: 552.00,
-    status: "Cancelled",
     items: [
       { id: "item6", medicationName: "Band-Aids (Box)", quantity: 1, pricePerUnit: 552.00, totalPrice: 552.00 },
     ],
+    totalAmount: 552.00,
+    status: "Cancelled",
+    isTaxApplied: false,
   },
   {
     id: "5",
@@ -98,31 +115,59 @@ const sampleBills: Bill[] = [
     patientName: "Edward Scissorhands",
     doctorName: "Dr. Jones",
     date: new Date("2024-07-18").toISOString(),
+    items: [
+      { id: "item7", medicationName: "Aspirin 75mg", quantity: 10, pricePerUnit: 133.93, taxRate: 12, gstAmount: 16.07*10, totalPrice: 1500.00 }, // Price per unit adjusted for 12% GST example
+    ],
+    subTotal: 1339.30,
+    totalGstAmount: 160.70,
     totalAmount: 1500.00,
     status: "Paid",
-    items: [
-      { id: "item7", medicationName: "Aspirin 75mg", quantity: 10, pricePerUnit: 150.00, totalPrice: 1500.00 },
-    ],
     paymentMethod: "Insurance",
+    isTaxApplied: true,
+    gstRateApplied: 12
   },
 ];
 
-export const getSampleBills = () => sampleBills;
-export const getBillById = (id: string): Bill | undefined => sampleBills.find(bill => bill.id === id);
+// Function to get all bills (could be from API in future)
+export const getSampleBills = (): Bill[] => {
+  // In a real app, this might fetch from localStorage or an API and map data
+  return sampleBills.map(bill => ({
+    ...bill,
+    // Ensure essential fields for display, even if not fully populated in sample data
+    subTotal: bill.isTaxApplied ? bill.subTotal : bill.totalAmount, 
+    totalGstAmount: bill.isTaxApplied ? bill.totalGstAmount : 0,
+  }));
+};
+
+export const getBillById = (id: string): Bill | undefined => {
+    const bill = sampleBills.find(b => b.id === id);
+    if (bill) {
+        return {
+            ...bill,
+            subTotal: bill.isTaxApplied ? bill.subTotal : bill.totalAmount,
+            totalGstAmount: bill.isTaxApplied ? bill.totalGstAmount : 0,
+        };
+    }
+    return undefined;
+};
 
 
 export default function ViewBillsPage() {
   const [searchTerm, setSearchTerm] = React.useState("");
-  const [filteredBills, setFilteredBills] = React.useState<Bill[]>(sampleBills);
+  const [allBills, setAllBills] = React.useState<Bill[]>([]);
 
   React.useEffect(() => {
-    const results = sampleBills.filter(bill =>
+    setAllBills(getSampleBills());
+  }, []);
+
+  const filteredBills = React.useMemo(() => {
+    if (!searchTerm) return allBills;
+    return allBills.filter(bill =>
       bill.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       bill.billNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (bill.patientMobileNumber && bill.patientMobileNumber.includes(searchTerm))
     );
-    setFilteredBills(results);
-  }, [searchTerm]);
+  }, [searchTerm, allBills]);
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(event.target.value);
@@ -217,4 +262,3 @@ export default function ViewBillsPage() {
 }
 
     
-

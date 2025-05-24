@@ -2,8 +2,9 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import PageHeader from "@/components/shared/page-header";
-import { Settings as SettingsIcon, Printer, FileText, Database, Palette, Trash2 } from "lucide-react";
+import { Settings as SettingsIcon, Printer, FileText, Database, Palette, Trash2, Percent } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -14,7 +15,9 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 
 const DOCTORS_STORAGE_KEY = "managedDoctorsList";
-const defaultDoctors = ["Dr. Smith", "Dr. Jones", "Dr. Other (Manual Entry)"]; // Ensured manual entry option
+const defaultDoctors = ["Dr. Smith", "Dr. Jones", "Dr. Other (Manual Entry)"];
+const IS_TAX_ENABLED_KEY = "isTaxEnabled";
+const DEFAULT_GST_RATE_KEY = "defaultGstRate";
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -37,6 +40,22 @@ export default function SettingsPage() {
 
   const [newDoctorName, setNewDoctorName] = React.useState("");
 
+  const [isTaxEnabled, setIsTaxEnabled] = React.useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(IS_TAX_ENABLED_KEY);
+      return stored === 'true';
+    }
+    return false;
+  });
+  const [defaultGstRate, setDefaultGstRate] = React.useState<number | string>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(DEFAULT_GST_RATE_KEY);
+      return stored ? parseFloat(stored) : 12; // Default to 12% if not set
+    }
+    return 12;
+  });
+
+
   React.useEffect(() => {
     setMounted(true);
     const currentThemeIsDark = document.documentElement.classList.contains('dark');
@@ -48,6 +67,19 @@ export default function SettingsPage() {
       localStorage.setItem(DOCTORS_STORAGE_KEY, JSON.stringify(doctorsList));
     }
   }, [doctorsList]);
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(IS_TAX_ENABLED_KEY, String(isTaxEnabled));
+    }
+  }, [isTaxEnabled]);
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(DEFAULT_GST_RATE_KEY, String(defaultGstRate));
+    }
+  }, [defaultGstRate]);
+
 
   const handleThemeChange = (checked: boolean) => {
     setIsDarkMode(checked);
@@ -82,13 +114,42 @@ export default function SettingsPage() {
     toast({ title: "Doctor Removed", description: `${doctorNameToRemove} has been removed.` });
   };
 
+  const handleGstRateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value === "") {
+        setDefaultGstRate("");
+    } else {
+        const numValue = parseFloat(value);
+        if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
+            setDefaultGstRate(numValue);
+        } else if (isNaN(numValue) && value.length <=5) {
+            // Allow typing partial numbers like "1."
+            setDefaultGstRate(value);
+        }
+    }
+  };
+
+  const handleSaveSettings = () => {
+    // Ensure GST rate is valid before final save logic if needed, currently handled by useEffect
+    if (typeof defaultGstRate === 'string' && (defaultGstRate === "" || isNaN(parseFloat(defaultGstRate)))) {
+        toast({
+            title: "Invalid GST Rate",
+            description: "Please enter a valid number for the GST rate.",
+            variant: "destructive",
+        });
+        return;
+    }
+     toast({
+      title: "Settings Saved",
+      description: "Your application settings have been updated.",
+    });
+  };
+
 
   if (!mounted) {
-    // Minimal render during SSR or before mount to avoid hydration issues with localStorage
     return (
       <div className="space-y-6">
          <PageHeader title="Settings" description="Configure application preferences and options." icon={SettingsIcon} />
-         {/* Placeholder or loading state for cards if necessary */}
       </div>
     );
   }
@@ -125,6 +186,46 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
           
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Percent className="h-5 w-5 text-primary" /> Tax Settings</CardTitle>
+              <CardDescription>Configure GST calculation for bills.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                <div className="space-y-0.5">
+                  <Label htmlFor="enableTaxes" className="text-base">Enable Taxes</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Enable this to include GST calculations in bills.
+                  </p>
+                </div>
+                <Switch 
+                  id="enableTaxes" 
+                  checked={isTaxEnabled} 
+                  onCheckedChange={setIsTaxEnabled}
+                />
+              </div>
+              {isTaxEnabled && (
+                <div className="space-y-2">
+                  <Label htmlFor="defaultGstRate">Default GST Rate (%)</Label>
+                  <Input 
+                    id="defaultGstRate" 
+                    type="number" 
+                    placeholder="e.g., 12" 
+                    value={defaultGstRate}
+                    onChange={handleGstRateChange}
+                    step="0.01"
+                    min="0"
+                    max="100"
+                  />
+                   <p className="text-xs text-muted-foreground">
+                    This global rate will be applied to all taxable items if taxes are enabled.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5 text-primary" /> Doctor Management</CardTitle>
@@ -215,11 +316,9 @@ export default function SettingsPage() {
       </div>
 
       <div className="flex justify-end pt-4">
-        <Button size="lg">Save Settings</Button>
+        <Button size="lg" onClick={handleSaveSettings}>Save Settings</Button>
       </div>
     </div>
   );
 }
-    
-
     
