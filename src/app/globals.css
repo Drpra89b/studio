@@ -91,3 +91,66 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  body {
+    font-family: Arial, Helvetica, sans-serif; /* Use print-friendly fonts */
+    background-color: #fff !important; /* Ensure white background */
+    color: #000 !important; /* Ensure black text */
+    -webkit-print-color-adjust: exact; /* Chrome, Safari */
+    print-color-adjust: exact; /* Firefox, Edge */
+  }
+  /* Hide elements not relevant for printing */
+  [data-sidebar="sidebar"], 
+  header.sticky, /* Main header */
+  .print\:hidden {
+    display: none !important;
+  }
+  main.flex-1 {
+    padding: 0 !important; /* Remove padding around main content */
+    margin: 0 !important;
+  }
+  .print\:shadow-none { box-shadow: none !important; }
+  .print\:border-none { border: none !important; }
+  .print\:bg-transparent { background-color: transparent !important; }
+  .print\:px-0 { padding-left: 0 !important; padding-right: 0 !important; }
+  .print\:pt-0 { padding-top: 0 !important; }
+  .print\:p-0 { padding: 0 !important; }
+  .print\:text-xs { font-size: 0.75rem !important; line-height: 1rem !important; }
+  .print\:text-sm { font-size: 0.875rem !important; line-height: 1.25rem !important; }
+  .print\:text-base { font-size: 1rem !important; line-height: 1.5rem !important; }
+  .print\:text-xl { font-size: 1.25rem !important; line-height: 1.75rem !important; }
+  .print\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .print\:gap-4 { gap: 1rem !important; }
+  .print\:space-y-0 > :not([hidden]) ~ :not([hidden]) { --tw-space-y-reverse: 0 !important; margin-top: calc(0rem * calc(1 - var(--tw-space-y-reverse))) !important; margin-bottom: calc(0rem * var(--tw-space-y-reverse)) !important; }
+  .print\:space-y-4 > :not([hidden]) ~ :not([hidden]) { --tw-space-y-reverse: 0 !important; margin-top: calc(1rem * calc(1 - var(--tw-space-y-reverse))) !important; margin-bottom: calc(1rem * var(--tw-space-y-reverse)) !important; }
+  .print\:my-2 { margin-top: 0.5rem !important; margin-bottom: 0.5rem !important; }
+  .print\:mb-2 { margin-bottom: 0.5rem !important; }
+  .print\:py-1 { padding-top: 0.25rem !important; padding-bottom: 0.25rem !important; }
+  .print\:px-2 { padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
+  .print\:border-b { border-bottom-width: 1px !important; }
+  .print\:border-gray-200 { --tw-border-opacity: 1 !important; border-color: rgb(229 231 235 / var(--tw-border-opacity)) !important; }
+  .print\:border-gray-300 { --tw-border-opacity: 1 !important; border-color: rgb(209 213 219 / var(--tw-border-opacity)) !important; }
+  .print\:max-w-none { max-width: none !important; }
+  .print\:w-auto { width: auto !important; }
+  .print\:ml-auto { margin-left: auto !important; }
+  .print\:mt-4 { margin-top: 1rem !important; }
+  .print\:text-center { text-align: center !important; }
+  .print\:w-full { width: 100% !important; }
+
+  /* Ensure card content is visible */
+  .print\:shadow-none {
+    box-shadow: none !important;
+  }
+  .print\:border-none {
+    border: none !important;
+  }
+  .print\:p-0 {
+    padding: 0 !important;
+  }
+
+  @page {
+    size: auto; /* auto is the initial value */
+    margin: 0.5in; /* Adjust margins as needed */
+  }
+}

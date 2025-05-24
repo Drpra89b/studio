@@ -59,10 +59,13 @@ export default function BillDetailPage() {
   }
 
   const handlePrint = () => {
-    // Placeholder for print functionality
-    toast({ title: "Print Action", description: "Printing functionality is not yet implemented."});
     if (typeof window !== 'undefined') {
+      // Potentially hide elements before printing and show after
+      // For now, direct print. CSS will handle hiding some elements.
       window.print();
+      toast({ title: "Print Initiated", description: "Your browser's print dialog should appear."});
+    } else {
+      toast({ title: "Print Error", description: "Printing is not available in this environment.", variant: "destructive"});
     }
   };
 
@@ -73,10 +76,10 @@ export default function BillDetailPage() {
 
 
   return (
-    <div className="space-y-6">
-      <PageHeader title={`Bill Details: ${bill.billNumber}`} description={`Viewing details for bill issued to ${bill.patientName}.`} icon={FileText} />
+    <div className="space-y-6 print:space-y-0">
+      <PageHeader title={`Bill Details: ${bill.billNumber}`} description={`Viewing details for bill issued to ${bill.patientName}.`} icon={FileText} className="print:hidden" />
 
-      <div className="flex flex-col md:flex-row gap-4 items-start">
+      <div className="flex flex-col md:flex-row gap-4 items-start print:hidden">
         <Button onClick={() => router.push("/view-bills")} variant="outline" className="w-full md:w-auto">
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Bills List
         </Button>
@@ -89,12 +92,12 @@ export default function BillDetailPage() {
         </Button>
       </div>
 
-      <Card className="shadow-lg">
-        <CardHeader className="bg-muted/30 p-6">
+      <Card className="shadow-lg print:shadow-none print:border-none">
+        <CardHeader className="bg-muted/30 p-6 print:bg-transparent print:px-0 print:pt-0">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
             <div>
-              <CardTitle className="text-2xl">Invoice #{bill.billNumber}</CardTitle>
-              <CardDescription>Date Issued: {formatDate(bill.date)}</CardDescription>
+              <CardTitle className="text-2xl print:text-xl">Invoice #{bill.billNumber}</CardTitle>
+              <CardDescription className="print:text-xs">Date Issued: {formatDate(bill.date)}</CardDescription>
             </div>
             <Badge
               variant={
@@ -103,59 +106,59 @@ export default function BillDetailPage() {
                 "destructive"
               }
               className={cn(
-                "text-sm mt-2 sm:mt-0 px-3 py-1",
-                bill.status === "Paid" && "bg-green-500 hover:bg-green-600 text-white",
-                bill.status === "Pending" && "bg-yellow-500 hover:bg-yellow-600 text-black",
-                bill.status === "Cancelled" && "bg-red-500 hover:bg-red-600 text-white"
+                "text-sm mt-2 sm:mt-0 px-3 py-1 print:text-xs",
+                bill.status === "Paid" && "bg-green-500 hover:bg-green-600 text-white print:bg-green-500 print:text-white",
+                bill.status === "Pending" && "bg-yellow-500 hover:bg-yellow-600 text-black print:bg-yellow-500 print:text-black",
+                bill.status === "Cancelled" && "bg-red-500 hover:bg-red-600 text-white print:bg-red-500 print:text-white"
               )}
             >
               {bill.status}
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+        <CardContent className="p-6 space-y-6 print:p-0 print:space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm print:grid-cols-2 print:gap-4">
             <div>
-              <h3 className="font-semibold text-foreground mb-1">Billed To:</h3>
-              <p className="text-muted-foreground">{bill.patientName}</p>
+              <h3 className="font-semibold text-foreground mb-1 print:text-sm">Billed To:</h3>
+              <p className="text-muted-foreground print:text-xs">{bill.patientName}</p>
             </div>
             <div>
-              <h3 className="font-semibold text-foreground mb-1">Prescribed By:</h3>
-              <p className="text-muted-foreground">{bill.doctorName}</p>
+              <h3 className="font-semibold text-foreground mb-1 print:text-sm">Prescribed By:</h3>
+              <p className="text-muted-foreground print:text-xs">{bill.doctorName}</p>
             </div>
             {bill.paymentMethod && (
               <div>
-                <h3 className="font-semibold text-foreground mb-1">Payment Method:</h3>
-                <p className="text-muted-foreground">{bill.paymentMethod}</p>
+                <h3 className="font-semibold text-foreground mb-1 print:text-sm">Payment Method:</h3>
+                <p className="text-muted-foreground print:text-xs">{bill.paymentMethod}</p>
               </div>
             )}
           </div>
 
-          <Separator />
+          <Separator className="print:my-2" />
 
           <div>
-            <h3 className="text-lg font-semibold text-foreground mb-3">Items:</h3>
-            <div className="overflow-x-auto rounded-md border">
-              <Table>
+            <h3 className="text-lg font-semibold text-foreground mb-3 print:text-base print:mb-2">Items:</h3>
+            <div className="overflow-x-auto rounded-md border print:border-none print:rounded-none">
+              <Table className="print:text-xs">
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Medication</TableHead>
-                    <TableHead>Batch No.</TableHead>
-                    <TableHead>Expiry</TableHead>
-                    <TableHead className="text-center">Qty</TableHead>
-                    <TableHead className="text-right">Price/Unit</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
+                  <TableRow className="print:border-b print:border-gray-300">
+                    <TableHead className="print:py-1 print:px-2">Medication</TableHead>
+                    <TableHead className="print:py-1 print:px-2">Batch No.</TableHead>
+                    <TableHead className="print:py-1 print:px-2">Expiry</TableHead>
+                    <TableHead className="text-center print:py-1 print:px-2">Qty</TableHead>
+                    <TableHead className="text-right print:py-1 print:px-2">Price/Unit</TableHead>
+                    <TableHead className="text-right print:py-1 print:px-2">Total</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {bill.items.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.medicationName}</TableCell>
-                      <TableCell>{item.batchNo}</TableCell>
-                      <TableCell>{new Date(item.expiryDate).toLocaleDateString()}</TableCell>
-                      <TableCell className="text-center">{item.quantity}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(item.pricePerUnit)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(item.totalPrice)}</TableCell>
+                    <TableRow key={item.id} className="print:border-b print:border-gray-200">
+                      <TableCell className="font-medium print:py-1 print:px-2">{item.medicationName}</TableCell>
+                      <TableCell className="print:py-1 print:px-2">{item.batchNo}</TableCell>
+                      <TableCell className="print:py-1 print:px-2">{new Date(item.expiryDate).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-center print:py-1 print:px-2">{item.quantity}</TableCell>
+                      <TableCell className="text-right print:py-1 print:px-2">{formatCurrency(item.pricePerUnit)}</TableCell>
+                      <TableCell className="text-right print:py-1 print:px-2">{formatCurrency(item.totalPrice)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -163,12 +166,12 @@ export default function BillDetailPage() {
             </div>
           </div>
 
-          <Separator />
+          <Separator className="print:my-2"/>
           
           <div className="flex justify-end">
-            <div className="w-full max-w-xs space-y-2 text-sm">
+            <div className="w-full max-w-xs space-y-2 text-sm print:max-w-none print:w-auto print:ml-auto">
               {/* Subtotal could be calculated if needed, for now just showing total */}
-              <div className="flex justify-between font-semibold text-lg">
+              <div className="flex justify-between font-semibold text-lg print:text-base">
                 <span>Grand Total:</span>
                 <span>{formatCurrency(bill.totalAmount)}</span>
               </div>
@@ -177,16 +180,16 @@ export default function BillDetailPage() {
 
           {bill.notes && (
             <>
-              <Separator />
+              <Separator className="print:my-2"/>
               <div>
-                <h3 className="font-semibold text-foreground mb-1">Notes:</h3>
-                <p className="text-muted-foreground text-sm whitespace-pre-wrap">{bill.notes}</p>
+                <h3 className="font-semibold text-foreground mb-1 print:text-sm">Notes:</h3>
+                <p className="text-muted-foreground text-sm whitespace-pre-wrap print:text-xs">{bill.notes}</p>
               </div>
             </>
           )}
         </CardContent>
-        <CardFooter className="p-6 bg-muted/30 border-t">
-            <p className="text-xs text-muted-foreground">
+        <CardFooter className="p-6 bg-muted/30 border-t print:bg-transparent print:p-0 print:mt-4 print:border-t print:border-gray-300">
+            <p className="text-xs text-muted-foreground print:text-center print:w-full">
                 Thank you for choosing MediStore! If you have any questions about this bill, please contact us.
             </p>
         </CardFooter>
@@ -194,5 +197,3 @@ export default function BillDetailPage() {
     </div>
   );
 }
-
-    
