@@ -40,6 +40,7 @@ if (
   } else {
     // If already initialized, get the default app's firestore instance
     db = admin.app().firestore();
+    // console.log('Firebase Admin SDK already initialized. Using existing instance.'); // Optional: less verbose
   }
 } else {
   console.warn(
