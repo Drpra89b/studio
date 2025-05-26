@@ -29,7 +29,7 @@ if (
   if (admin.apps.length === 0) {
     try {
       admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
+        credential: admin.credential.cert(serviceAccount as admin.ServiceAccountInfo),
       });
       db = admin.firestore();
       console.log('Firebase Admin SDK initialized successfully.');
