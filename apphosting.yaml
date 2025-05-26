@@ -5,3 +5,17 @@ runConfig:
   # Increase this value if you'd like to automatically spin up
   # more instances in response to increased traffic.
   maxInstances: 1
+  # Environment variables for your backend.
+  # IMPORTANT: For sensitive values like FIREBASE_PRIVATE_KEY,
+  # consider using Firebase's secret management features or setting them
+  # via the Firebase Console UI, which is more secure than hardcoding here
+  # if this file is committed to version control.
+  env:
+    - variable: FIREBASE_PROJECT_ID
+      value: "mypills-34dbb" # Your actual Project ID
+    - variable: FIREBASE_CLIENT_EMAIL
+      value: "firebase-adminsdk-fbsvc@mypills-34dbb.iam.gserviceaccount.com" # Your actual Client Email
+    - variable: FIREBASE_PRIVATE_KEY
+      value: "YOUR_ACTUAL_PRIVATE_KEY_HERE" # REPLACE THIS ENTIRE STRING with your actual private key. Be extremely careful with this value.
+
+# You might have other configurations here like ingress, etc.
