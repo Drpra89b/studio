@@ -21,6 +21,7 @@ const serviceAccount: ServiceAccount = {
 };
 
 let db: admin.firestore.Firestore | null = null;
+let firebaseAdminInstance: typeof admin | null = null;
 
 // Check if all necessary environment variables are set
 if (
@@ -34,24 +35,26 @@ if (
         credential: admin.credential.cert(serviceAccount as admin.ServiceAccountInfo),
       });
       db = admin.firestore();
+      firebaseAdminInstance = admin; // Store the initialized admin instance
       console.log('Firebase Admin SDK initialized successfully.');
     } catch (error) {
       console.error('Firebase Admin SDK initialization error:', error);
-      // db will remain null, and API routes should handle this (e.g., return an error)
+      // db and firebaseAdminInstance will remain null
     }
   } else {
-    // If already initialized, get the default app's firestore instance
+    // If already initialized, get the default app's firestore instance and admin instance
     db = admin.app().firestore();
+    firebaseAdminInstance = admin; // Store the existing admin instance
     // console.log('Firebase Admin SDK already initialized. Using existing instance.'); // Optional: less verbose
   }
 } else {
   console.warn(
     'Firebase Admin SDK not initialized because one or more environment variables (FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY) are missing.'
   );
-  // db remains null
+  // db and firebaseAdminInstance remain null
 }
 
-// Optional: A helper function to check if the Admin SDK (and thus db) is initialized
+// A helper function to check if the Admin SDK (and thus db) is initialized
 const isFirebaseAdminInitialized = () => admin.apps.length > 0 && db !== null;
 
-export { db, isFirebaseAdminInitialized, admin as firebaseAdminInstance };
+export { db, isFirebaseAdminInitialized, firebaseAdminInstance };

@@ -79,18 +79,29 @@ export default function ManageStaffPage() {
 
   const fetchStaff = async () => {
     setIsLoading(true);
+    let errorDescription = "Could not load staff list. Please check server logs or try again later.";
     try {
       const response = await fetch('/api/staff');
       if (!response.ok) {
-        throw new Error('Failed to fetch staff');
+        try {
+          const errorData = await response.json();
+          if (errorData && errorData.message) {
+            errorDescription = errorData.message;
+          } else {
+            errorDescription = `Failed to fetch staff. Status: ${response.status}`;
+          }
+        } catch (jsonError) {
+          errorDescription = `Failed to fetch staff. Status: ${response.status}. Response not readable.`;
+        }
+        throw new Error(errorDescription);
       }
       const data = await response.json();
       setStaffList(data as StaffMember[]);
     } catch (error) {
-      console.error("Failed to fetch staff list:", error);
+      console.error("Failed to fetch staff list from API:", error);
       toast({
         title: "Error Loading Staff",
-        description: (error as Error).message || "Could not load staff list.",
+        description: (error as Error).message, // This will now use the more specific errorDescription
         variant: "destructive",
       });
     } finally {
@@ -128,8 +139,8 @@ export default function ManageStaffPage() {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to create staff member');
       }
-      const newStaffMember = await response.json();
-      setStaffList(prevStaff => [newStaffMember, ...prevStaff]); // Optimistic update or re-fetch
+      // const newStaffMember = await response.json();
+      // setStaffList(prevStaff => [newStaffMember, ...prevStaff]); // Optimistic update or re-fetch
       await fetchStaff(); // Re-fetch to ensure consistency
       toast({
         title: "Staff User Created",
