@@ -1,6 +1,4 @@
-
 'use server';
-
 import * as admin from 'firebase-admin';
 
 // Define the expected structure of service account credentials
