@@ -30,8 +30,19 @@ const createStaffSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
-  // Return the mock staff list
-  return NextResponse.json(mockStaffMembers);
+  try {
+    // Ensure mockStaffMembers is actually an array before sending
+    if (!Array.isArray(mockStaffMembers)) {
+        // This case should ideally not happen if the variable is initialized correctly.
+        console.error('Mock API Critical Error (GET /api/staff): mockStaffMembers is not an array. Resetting to empty.');
+        mockStaffMembers = []; 
+        return NextResponse.json({ message: 'Mock API: Internal data error. Staff list corrupted.' }, { status: 500 });
+    }
+    return NextResponse.json(mockStaffMembers);
+  } catch (error: any) {
+    console.error('Mock API Error (GET /api/staff): Unhandled exception in GET handler:', error);
+    return NextResponse.json({ message: `Mock API: Unexpected server error. Details: ${error.message || 'Unknown server error.'}` }, { status: 500 });
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -59,3 +70,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: `Mock API: Error creating staff member. Details: ${error.message || 'Unknown server error.'}` }, { status: 500 });
   }
 }
+
