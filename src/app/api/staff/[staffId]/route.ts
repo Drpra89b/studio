@@ -1,12 +1,12 @@
+
 'use server';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import * as z from 'zod';
-import { db, firebaseAdminInitializationError } from '@/lib/firebase-admin'; // Updated import
+import { db, firebaseAdminInitializationError } from '@/lib/firebase-admin';
 
 const STAFF_COLLECTION = 'staff_members';
 
-// Zod schema for updating staff (password is not updatable here)
 const updateStaffSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }).optional(),
   username: z.string().min(3, { message: "Username must be at least 3 characters." }).regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores.").optional(),
@@ -25,7 +25,7 @@ export async function GET(
   }
   if (!db) {
     console.error(`API Error (GET /api/staff/${params.staffId}): Firestore database instance (db) is null.`);
-    return NextResponse.json({ message: 'Server error: Firestore database instance is not available.' }, { status: 500 });
+    return NextResponse.json({ message: 'Server error: Firestore database instance is not available due to initialization failure.' }, { status: 500 });
   }
 
   try {
@@ -54,7 +54,7 @@ export async function PUT(
   }
   if (!db) {
     console.error(`API Error (PUT /api/staff/${params.staffId}): Firestore database instance (db) is null.`);
-    return NextResponse.json({ message: 'Server error: Firestore database instance is not available.' }, { status: 500 });
+    return NextResponse.json({ message: 'Server error: Firestore database instance is not available due to initialization failure.' }, { status: 500 });
   }
   
   try {
@@ -62,7 +62,6 @@ export async function PUT(
     const body = await request.json();
     const validatedData = updateStaffSchema.parse(body);
 
-    // Ensure there's something to update
     if (Object.keys(validatedData).length === 0) {
         return NextResponse.json({ message: 'No update data provided' }, { status: 400 });
     }
@@ -95,7 +94,7 @@ export async function DELETE(
   }
   if (!db) {
     console.error(`API Error (DELETE /api/staff/${params.staffId}): Firestore database instance (db) is null.`);
-    return NextResponse.json({ message: 'Server error: Firestore database instance is not available.' }, { status: 500 });
+    return NextResponse.json({ message: 'Server error: Firestore database instance is not available due to initialization failure.' }, { status: 500 });
   }
 
   try {

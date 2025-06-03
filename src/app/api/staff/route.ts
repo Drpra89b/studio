@@ -1,25 +1,22 @@
+
 'use server';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import * as z from 'zod';
-import { db, firebaseAdminInitializationError } from '@/lib/firebase-admin'; // Updated import
+import { db, firebaseAdminInitializationError } from '@/lib/firebase-admin';
 
-// Firestore collection reference
 const STAFF_COLLECTION = 'staff_members';
 
-// Zod schema for creating staff (matches frontend, password handled but not stored)
 const createStaffSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   username: z.string().min(3, { message: "Username must be at least 3 characters." }).regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores."),
   email: z.string().email({ message: "Please enter a valid email address." }),
-  // Password is received but not stored in Firestore for this iteration
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   status: z.enum(["Active", "Disabled"]).default("Active"),
 });
 
-// Zod schema for staff data stored in Firestore (excluding password)
 export const staffSchemaFirestore = z.object({
-  id: z.string().optional(), // ID will be Firestore document ID
+  id: z.string().optional(),
   name: z.string(),
   username: z.string(),
   email: z.string().email(),
@@ -30,14 +27,12 @@ export type StaffMemberFirestore = z.infer<typeof staffSchemaFirestore>;
 
 export async function GET(request: NextRequest) {
   if (firebaseAdminInitializationError) {
-    console.error("API Error: Firebase Admin SDK failed to initialize.", firebaseAdminInitializationError);
+    console.error("API Error (GET /api/staff): Firebase Admin SDK initialization failed.", firebaseAdminInitializationError);
     return NextResponse.json({ message: `Server configuration error: Firebase Admin SDK not initialized. Details: ${firebaseAdminInitializationError}` }, { status: 500 });
   }
-
-  // Double check db, though firebaseAdminInitializationError should cover it.
   if (!db) {
-    console.error("API Error: Firestore database instance (db) is null, but no specific initialization error was reported.");
-    return NextResponse.json({ message: 'Server error: Firestore database instance is not available.' }, { status: 500 });
+    console.error("API Error (GET /api/staff): Firestore database instance (db) is null.");
+    return NextResponse.json({ message: 'Server error: Firestore database instance is not available due to initialization failure.' }, { status: 500 });
   }
 
   try {
@@ -48,7 +43,7 @@ export async function GET(request: NextRequest) {
     });
     return NextResponse.json(staffList);
   } catch (error: any) {
-    console.error('API Error: Error fetching staff list from Firestore:', error);
+    console.error('API Error (GET /api/staff): Error fetching staff list from Firestore:', error);
     return NextResponse.json({ message: `Failed to fetch staff list. Details: ${error.message || 'An unknown error occurred on the server.'}` }, { status: 500 });
   }
 }
@@ -60,14 +55,13 @@ export async function POST(request: NextRequest) {
   }
   if (!db) {
     console.error("API Error (POST /api/staff): Firestore database instance (db) is null.");
-    return NextResponse.json({ message: 'Server error: Firestore database instance is not available.' }, { status: 500 });
+    return NextResponse.json({ message: 'Server error: Firestore database instance is not available due to initialization failure.' }, { status: 500 });
   }
 
   try {
     const body = await request.json();
     const validatedData = createStaffSchema.parse(body);
 
-    // Exclude password from the data to be stored in Firestore
     const { password, ...staffDataToStore } = validatedData;
 
     const docRef = await db.collection(STAFF_COLLECTION).add(staffDataToStore);

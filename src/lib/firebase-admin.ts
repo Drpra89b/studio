@@ -1,3 +1,4 @@
+
 'use server'; // This must be the very first line
 import * as admin from 'firebase-admin';
 
@@ -10,10 +11,17 @@ interface ServiceAccount {
 let db: admin.firestore.Firestore | null = null;
 let firebaseAdminInitializationError: string | null = null;
 
+console.log("Attempting to initialize Firebase Admin SDK...");
+
 try {
   const projectId = process.env.FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const privateKeyEnv = process.env.FIREBASE_PRIVATE_KEY;
+
+  console.log(`FIREBASE_PROJECT_ID present: ${!!projectId}`);
+  console.log(`FIREBASE_CLIENT_EMAIL present: ${!!clientEmail}`);
+  console.log(`FIREBASE_PRIVATE_KEY present: ${!!privateKeyEnv}`);
+
 
   if (!projectId || !clientEmail || !privateKeyEnv) {
     const missingVars: string[] = [];
@@ -40,16 +48,13 @@ try {
       console.log('Firebase Admin SDK initialized successfully.');
     } else {
       db = admin.app().firestore();
-      // console.log('Firebase Admin SDK already initialized. Using existing instance.');
+      // console.log('Firebase Admin SDK already initialized. Using existing instance.'); // Optional: less verbose
     }
   }
 } catch (error: any) {
-  // This catch block will now handle errors from .replace() if privateKeyEnv was problematic,
-  // or errors from admin.credential.cert() or admin.initializeApp().
   firebaseAdminInitializationError = `Firebase Admin SDK catastrophic initialization error: ${error.message || String(error)}`;
   console.error(firebaseAdminInitializationError, error);
   // db remains null
 }
 
-// Remove firebaseAdminInstance and isFirebaseAdminInitialized from exports as they are not directly used by the API needing db.
 export { db, firebaseAdminInitializationError };
