@@ -13,14 +13,27 @@ const dataFilePath = path.join(process.cwd(), 'src', 'data', 'staff.json');
 const readStaffData = (): StaffMemberFirestore[] => {
   try {
     if (!fs.existsSync(dataFilePath)) {
+      // If the directory doesn't exist, create it.
+      const dataDir = path.dirname(dataFilePath);
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
       fs.writeFileSync(dataFilePath, JSON.stringify([])); // Create an empty file if it doesn't exist
       return [];
     }
     const jsonData = fs.readFileSync(dataFilePath, 'utf-8');
+    // Handle empty or invalid JSON
+    if (jsonData.trim() === "") return [];
     return JSON.parse(jsonData) as StaffMemberFirestore[];
   } catch (error) {
     console.error('Error reading staff data file:', error);
-    return []; // Return empty array on error to prevent crash
+    // In case of a read error (e.g., corrupted file), it's safer to return an empty array
+    // or handle it in a way that doesn't crash the server, possibly re-creating the file.
+    // For now, return empty and log.
+    if (!fs.existsSync(dataFilePath)) {
+         fs.writeFileSync(dataFilePath, JSON.stringify([]));
+    }
+    return [];
   }
 };
 
@@ -35,7 +48,8 @@ const writeStaffData = (data: StaffMemberFirestore[]): void => {
 };
 
 // Schema for StaffMember (matches client-side expectation)
-export const staffSchemaFirestore = z.object({
+// This schema is now internal to this file and not exported directly.
+const staffSchemaFirestore = z.object({
   id: z.string().optional(), // ID will be generated
   name: z.string(),
   username: z.string(),
@@ -53,27 +67,32 @@ const createStaffSchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
-  // IMPORTANT WARNING FOR DEPLOYMENT:
-  // File-based storage is NOT reliably persistent on serverless platforms like Firebase App Hosting.
-  // Data may be lost on redeployments or instance restarts. This is for local/demo purposes.
   try {
     const staffMembers = readStaffData();
     return NextResponse.json(staffMembers);
   } catch (error: any) {
-    console.error('API Error (GET /api/staff): Unhandled exception:', error);
+    console.error('API Error (GET /api/staff - File): Unhandled exception:', error);
     return NextResponse.json({ 
-      message: `API: Error fetching staff. Details: ${error.message || 'Unknown server error.'}. Reminder: File-based storage has limitations on serverless platforms.` 
+      message: `API (File): Error fetching staff. Details: ${error.message || 'Unknown server error.'}. File-based storage limitations reminder.` 
     }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
-  // IMPORTANT WARNING FOR DEPLOYMENT (Same as GET)
   try {
     const body = await request.json();
     const validatedData = createStaffSchema.parse(body);
 
-    const staffMembers = readStaffData();
+    let staffMembers = readStaffData();
+    
+    // Check for duplicate username or email before adding
+    if (staffMembers.some(staff => staff.username === validatedData.username)) {
+        return NextResponse.json({ message: 'Username already exists.' }, { status: 409 }); // 409 Conflict
+    }
+    if (staffMembers.some(staff => staff.email === validatedData.email)) {
+        return NextResponse.json({ message: 'Email already exists.' }, { status: 409 });
+    }
+
     const newStaffMember: StaffMemberFirestore = {
       id: `staff-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`, // Generate a unique ID
       name: validatedData.name,
@@ -85,15 +104,15 @@ export async function POST(request: NextRequest) {
     staffMembers.push(newStaffMember);
     writeStaffData(staffMembers);
     
-    console.log("API: Added staff member (file-based):", newStaffMember);
+    console.log("API (File): Added staff member:", newStaffMember);
     return NextResponse.json(newStaffMember, { status: 201 });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ message: 'Validation failed', errors: error.errors }, { status: 400 });
     }
-    console.error('API Error (POST /api/staff): Error creating staff member:', error);
+    console.error('API Error (POST /api/staff - File): Error creating staff member:', error);
     return NextResponse.json({ 
-      message: `API: Error creating staff member. Details: ${error.message || 'Unknown server error.'}. Reminder: File-based storage has limitations on serverless platforms.`
+      message: `API (File): Error creating staff member. Details: ${error.message || 'Unknown server error.'}.`
     }, { status: 500 });
   }
 }
