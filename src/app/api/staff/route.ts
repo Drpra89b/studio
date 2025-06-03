@@ -27,12 +27,14 @@ export type StaffMemberFirestore = z.infer<typeof staffSchemaFirestore>;
 
 export async function GET(request: NextRequest) {
   if (firebaseAdminInitializationError) {
-    console.error("API Error (GET /api/staff): Firebase Admin SDK initialization failed.", firebaseAdminInitializationError);
-    return NextResponse.json({ message: `Server configuration error: Firebase Admin SDK not initialized. Details: ${firebaseAdminInitializationError}` }, { status: 500 });
+    const detailedErrorMessage = `Firebase Admin SDK failed to initialize. This is a server configuration issue. Please check server logs for details. Initialization error: ${firebaseAdminInitializationError}`;
+    console.error(`API Error (GET /api/staff): ${detailedErrorMessage}`);
+    return NextResponse.json({ message: detailedErrorMessage, errorSource: "FirebaseAdminSDKInitialization" }, { status: 500 });
   }
   if (!db) {
-    console.error("API Error (GET /api/staff): Firestore database instance (db) is null.");
-    return NextResponse.json({ message: 'Server error: Firestore database instance is not available due to initialization failure.' }, { status: 500 });
+    const detailedErrorMessage = 'Server error: Firestore database instance (db) is not available. This usually indicates a Firebase Admin SDK initialization failure. Please check server logs.';
+    console.error(`API Error (GET /api/staff): ${detailedErrorMessage}`);
+    return NextResponse.json({ message: detailedErrorMessage, errorSource: "FirestoreInstanceNull" }, { status: 500 });
   }
 
   try {
@@ -50,12 +52,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   if (firebaseAdminInitializationError) {
-    console.error("API Error (POST /api/staff): Firebase Admin SDK failed to initialize.", firebaseAdminInitializationError);
-    return NextResponse.json({ message: `Server configuration error: Firebase Admin SDK not initialized. Details: ${firebaseAdminInitializationError}` }, { status: 500 });
+    const detailedErrorMessage = `Firebase Admin SDK failed to initialize. This is a server configuration issue. Please check server logs for details. Initialization error: ${firebaseAdminInitializationError}`;
+    console.error(`API Error (POST /api/staff): ${detailedErrorMessage}`);
+    return NextResponse.json({ message: detailedErrorMessage, errorSource: "FirebaseAdminSDKInitialization" }, { status: 500 });
   }
   if (!db) {
-    console.error("API Error (POST /api/staff): Firestore database instance (db) is null.");
-    return NextResponse.json({ message: 'Server error: Firestore database instance is not available due to initialization failure.' }, { status: 500 });
+    const detailedErrorMessage = 'Server error: Firestore database instance (db) is not available. This usually indicates a Firebase Admin SDK initialization failure. Please check server logs.';
+    console.error(`API Error (POST /api/staff): ${detailedErrorMessage}`);
+    return NextResponse.json({ message: detailedErrorMessage, errorSource: "FirestoreInstanceNull" }, { status: 500 });
   }
 
   try {
