@@ -3,19 +3,37 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 import * as z from 'zod';
+import fs from 'fs';
+import path from 'path';
 import type { StaffMemberFirestore } from '../route'; // Use the type from the main route
 
-// In-memory store for staff members (shared with the main route for consistency in a real app, but here it's standalone for simplicity)
-// For a real mock that persists across requests to [staffId] and base /staff, this would need to be managed centrally.
-// However, for now, let's assume the main route's mockStaffMembers is the source of truth.
-// To properly mock, we'd need to import and modify mockStaffMembers from '../route.ts'
-// For now, this will re-declare a limited version for simplicity of file change.
-let mockStaffMembers: StaffMemberFirestore[] = [
-  { id: 'mock-staff-1', name: 'Alice Wonderland', username: 'alice', email: 'alice@example.com', status: 'Active' },
-  { id: 'mock-staff-2', name: 'Bob The Builder', username: 'bob', email: 'bob@example.com', status: 'Active' },
-  { id: 'mock-staff-3', name: 'Carol Danvers', username: 'carol', email: 'carol@example.com', status: 'Disabled' }
-];
+// Path to the JSON file
+const dataFilePath = path.join(process.cwd(), 'src', 'data', 'staff.json');
 
+// Helper function to read data from the JSON file
+const readStaffData = (): StaffMemberFirestore[] => {
+  try {
+    if (!fs.existsSync(dataFilePath)) {
+      fs.writeFileSync(dataFilePath, JSON.stringify([]));
+      return [];
+    }
+    const jsonData = fs.readFileSync(dataFilePath, 'utf-8');
+    return JSON.parse(jsonData) as StaffMemberFirestore[];
+  } catch (error) {
+    console.error('Error reading staff data file:', error);
+    return [];
+  }
+};
+
+// Helper function to write data to the JSON file
+const writeStaffData = (data: StaffMemberFirestore[]): void => {
+  try {
+    const jsonData = JSON.stringify(data, null, 2);
+    fs.writeFileSync(dataFilePath, jsonData, 'utf-8');
+  } catch (error) {
+    console.error('Error writing staff data file:', error);
+  }
+};
 
 const updateStaffSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }).optional(),
@@ -24,55 +42,61 @@ const updateStaffSchema = z.object({
   status: z.enum(["Active", "Disabled"]).optional(),
 });
 
-
 export async function GET(
   request: NextRequest,
   { params }: { params: { staffId: string } }
 ) {
+  // IMPORTANT WARNING (Same as main route)
   try {
     const staffId = params.staffId;
-    const staffMember = mockStaffMembers.find(staff => staff.id === staffId);
+    const staffMembers = readStaffData();
+    const staffMember = staffMembers.find(staff => staff.id === staffId);
 
     if (!staffMember) {
-      return NextResponse.json({ message: 'Mock API: Staff member not found' }, { status: 404 });
+      return NextResponse.json({ message: 'API (File): Staff member not found' }, { status: 404 });
     }
     return NextResponse.json(staffMember);
   } catch (error: any) {
-    console.error(`Mock API Error (GET /api/staff/${params.staffId}): Error fetching staff member:`, error);
-    return NextResponse.json({ message: `Mock API: Error fetching staff member ${params.staffId}. Details: ${error.message || 'Unknown server error.'}` }, { status: 500 });
+    console.error(`API Error (GET /api/staff/${params.staffId}): Error fetching staff member:`, error);
+    return NextResponse.json({ 
+      message: `API: Error fetching staff member ${params.staffId}. Details: ${error.message || 'Unknown server error.'}. Reminder: File-based storage limitations.`
+    }, { status: 500 });
   }
 }
-
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: { staffId: string } }
 ) {
+  // IMPORTANT WARNING (Same as main route)
   try {
     const staffId = params.staffId;
     const body = await request.json();
     const validatedData = updateStaffSchema.parse(body);
 
     if (Object.keys(validatedData).length === 0) {
-        return NextResponse.json({ message: 'Mock API: No update data provided' }, { status: 400 });
+        return NextResponse.json({ message: 'API (File): No update data provided' }, { status: 400 });
     }
 
-    const staffIndex = mockStaffMembers.findIndex(staff => staff.id === staffId);
+    let staffMembers = readStaffData();
+    const staffIndex = staffMembers.findIndex(staff => staff.id === staffId);
     if (staffIndex === -1) {
-        return NextResponse.json({ message: 'Mock API: Staff member not found for update' }, { status: 404 });
+        return NextResponse.json({ message: 'API (File): Staff member not found for update' }, { status: 404 });
     }
 
-    // Update the mock staff member
-    mockStaffMembers[staffIndex] = { ...mockStaffMembers[staffIndex], ...validatedData };
+    staffMembers[staffIndex] = { ...staffMembers[staffIndex], ...validatedData };
+    writeStaffData(staffMembers);
     
-    console.log("Mock API: Updated staff member:", mockStaffMembers[staffIndex]);
-    return NextResponse.json(mockStaffMembers[staffIndex]);
+    console.log("API (File): Updated staff member:", staffMembers[staffIndex]);
+    return NextResponse.json(staffMembers[staffIndex]);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ message: 'Validation failed', errors: error.errors }, { status: 400 });
     }
-    console.error(`Mock API Error (PUT /api/staff/${params.staffId}): Error updating staff member:`, error);
-    return NextResponse.json({ message: `Mock API: Error updating staff member ${params.staffId}. Details: ${error.message || 'Unknown server error.'}` }, { status: 500 });
+    console.error(`API Error (PUT /api/staff/${params.staffId}): Error updating staff member:`, error);
+    return NextResponse.json({ 
+      message: `API: Error updating staff member ${params.staffId}. Details: ${error.message || 'Unknown server error.'}. Reminder: File-based storage limitations.`
+    }, { status: 500 });
   }
 }
 
@@ -80,19 +104,24 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { staffId: string } }
 ) {
+  // IMPORTANT WARNING (Same as main route)
   try {
     const staffId = params.staffId;
-    const initialLength = mockStaffMembers.length;
-    mockStaffMembers = mockStaffMembers.filter(staff => staff.id !== staffId);
+    let staffMembers = readStaffData();
+    const initialLength = staffMembers.length;
+    staffMembers = staffMembers.filter(staff => staff.id !== staffId);
 
-    if (mockStaffMembers.length === initialLength) {
-      return NextResponse.json({ message: 'Mock API: Staff member not found for deletion' }, { status: 404 });
+    if (staffMembers.length === initialLength) {
+      return NextResponse.json({ message: 'API (File): Staff member not found for deletion' }, { status: 404 });
     }
     
-    console.log("Mock API: Deleted staff member:", staffId);
-    return NextResponse.json({ message: `Mock API: Staff member ${staffId} deleted successfully` });
+    writeStaffData(staffMembers);
+    console.log("API (File): Deleted staff member:", staffId);
+    return NextResponse.json({ message: `API (File): Staff member ${staffId} deleted successfully` });
   } catch (error: any) {
-    console.error(`Mock API Error (DELETE /api/staff/${params.staffId}): Error deleting staff member:`, error);
-    return NextResponse.json({ message: `Mock API: Error deleting staff member ${params.staffId}. Details: ${error.message || 'Unknown server error.'}` }, { status: 500 });
+    console.error(`API Error (DELETE /api/staff/${params.staffId}): Error deleting staff member:`, error);
+    return NextResponse.json({ 
+      message: `API: Error deleting staff member ${params.staffId}. Details: ${error.message || 'Unknown server error.'}. Reminder: File-based storage limitations.`
+    }, { status: 500 });
   }
 }
