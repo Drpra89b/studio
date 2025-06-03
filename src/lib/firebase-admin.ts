@@ -1,58 +1,55 @@
-'use server';
+'use server'; // This must be the very first line
 import * as admin from 'firebase-admin';
 
-// Define the expected structure of service account credentials
 interface ServiceAccount {
   projectId?: string;
   clientEmail?: string;
   privateKey?: string;
 }
 
-// Attempt to load credentials from environment variables
-const serviceAccount: ServiceAccount = {
-  projectId: process.env.FIREBASE_PROJECT_ID,
-  clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-  // For private key, replace \\n with \n if stored as a single line in env var
-  privateKey: process.env.FIREBASE_PRIVATE_KEY
-    ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
-    : undefined,
-};
-
 let db: admin.firestore.Firestore | null = null;
-let firebaseAdminInstance: typeof admin | null = null;
+let firebaseAdminInitializationError: string | null = null;
 
-// Check if all necessary environment variables are set
-if (
-  serviceAccount.projectId &&
-  serviceAccount.clientEmail &&
-  serviceAccount.privateKey
-) {
-  if (admin.apps.length === 0) {
-    try {
+try {
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKeyEnv = process.env.FIREBASE_PRIVATE_KEY;
+
+  if (!projectId || !clientEmail || !privateKeyEnv) {
+    const missingVars: string[] = [];
+    if (!projectId) missingVars.push("FIREBASE_PROJECT_ID");
+    if (!clientEmail) missingVars.push("FIREBASE_CLIENT_EMAIL");
+    if (!privateKeyEnv) missingVars.push("FIREBASE_PRIVATE_KEY");
+    firebaseAdminInitializationError = `Firebase Admin SDK not initialized. Missing env vars: ${missingVars.join(', ')}`;
+    console.warn(firebaseAdminInitializationError);
+  } else {
+    // Ensure privateKeyEnv is treated as a string before calling .replace
+    const privateKey = String(privateKeyEnv).replace(/\\n/g, '\n');
+    
+    const serviceAccount: admin.ServiceAccount = {
+      projectId: projectId,
+      clientEmail: clientEmail,
+      privateKey: privateKey,
+    };
+
+    if (admin.apps.length === 0) {
       admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount as admin.ServiceAccountInfo),
+        credential: admin.credential.cert(serviceAccount),
       });
       db = admin.firestore();
-      firebaseAdminInstance = admin; // Store the initialized admin instance
       console.log('Firebase Admin SDK initialized successfully.');
-    } catch (error) {
-      console.error('Firebase Admin SDK initialization error:', error);
-      // db and firebaseAdminInstance will remain null
+    } else {
+      db = admin.app().firestore();
+      // console.log('Firebase Admin SDK already initialized. Using existing instance.');
     }
-  } else {
-    // If already initialized, get the default app's firestore instance and admin instance
-    db = admin.app().firestore();
-    firebaseAdminInstance = admin; // Store the existing admin instance
-    // console.log('Firebase Admin SDK already initialized. Using existing instance.'); // Optional: less verbose
   }
-} else {
-  console.warn(
-    'Firebase Admin SDK not initialized because one or more environment variables (FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY) are missing.'
-  );
-  // db and firebaseAdminInstance remain null
+} catch (error: any) {
+  // This catch block will now handle errors from .replace() if privateKeyEnv was problematic,
+  // or errors from admin.credential.cert() or admin.initializeApp().
+  firebaseAdminInitializationError = `Firebase Admin SDK catastrophic initialization error: ${error.message || String(error)}`;
+  console.error(firebaseAdminInitializationError, error);
+  // db remains null
 }
 
-// A helper function to check if the Admin SDK (and thus db) is initialized
-const isFirebaseAdminInitialized = () => admin.apps.length > 0 && db !== null;
-
-export { db, isFirebaseAdminInitialized, firebaseAdminInstance };
+// Remove firebaseAdminInstance and isFirebaseAdminInitialized from exports as they are not directly used by the API needing db.
+export { db, firebaseAdminInitializationError };

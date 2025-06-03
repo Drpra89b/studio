@@ -1,7 +1,8 @@
+'use server';
 
 import { type NextRequest, NextResponse } from 'next/server';
 import * as z from 'zod';
-import { db } from '@/lib/firebase-admin';
+import { db, firebaseAdminInitializationError } from '@/lib/firebase-admin'; // Updated import
 
 const STAFF_COLLECTION = 'staff_members';
 
@@ -18,11 +19,16 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { staffId: string } }
 ) {
+  if (firebaseAdminInitializationError) {
+    console.error(`API Error (GET /api/staff/${params.staffId}): Firebase Admin SDK failed to initialize.`, firebaseAdminInitializationError);
+    return NextResponse.json({ message: `Server configuration error: Firebase Admin SDK not initialized. Details: ${firebaseAdminInitializationError}` }, { status: 500 });
+  }
+  if (!db) {
+    console.error(`API Error (GET /api/staff/${params.staffId}): Firestore database instance (db) is null.`);
+    return NextResponse.json({ message: 'Server error: Firestore database instance is not available.' }, { status: 500 });
+  }
+
   try {
-    if (!db) {
-      console.error("Firestore admin instance (db) is not available in /api/staff/[staffId] GET.");
-      return NextResponse.json({ message: 'Firestore not initialized on server' }, { status: 500 });
-    }
     const staffId = params.staffId;
     const docRef = db.collection(STAFF_COLLECTION).doc(staffId);
     const docSnap = await docRef.get();
@@ -31,9 +37,9 @@ export async function GET(
       return NextResponse.json({ message: 'Staff member not found' }, { status: 404 });
     }
     return NextResponse.json({ id: docSnap.id, ...docSnap.data() });
-  } catch (error) {
-    console.error(`Error fetching staff member ${params.staffId}:`, error);
-    return NextResponse.json({ message: `Error fetching staff member ${params.staffId}` }, { status: 500 });
+  } catch (error: any) {
+    console.error(`API Error (GET /api/staff/${params.staffId}): Error fetching staff member:`, error);
+    return NextResponse.json({ message: `Error fetching staff member ${params.staffId}. Details: ${error.message || 'Unknown server error.'}` }, { status: 500 });
   }
 }
 
@@ -42,11 +48,16 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: { staffId: string } }
 ) {
+  if (firebaseAdminInitializationError) {
+    console.error(`API Error (PUT /api/staff/${params.staffId}): Firebase Admin SDK failed to initialize.`, firebaseAdminInitializationError);
+    return NextResponse.json({ message: `Server configuration error: Firebase Admin SDK not initialized. Details: ${firebaseAdminInitializationError}` }, { status: 500 });
+  }
+  if (!db) {
+    console.error(`API Error (PUT /api/staff/${params.staffId}): Firestore database instance (db) is null.`);
+    return NextResponse.json({ message: 'Server error: Firestore database instance is not available.' }, { status: 500 });
+  }
+  
   try {
-    if (!db) {
-      console.error("Firestore admin instance (db) is not available in /api/staff/[staffId] PUT.");
-      return NextResponse.json({ message: 'Firestore not initialized on server' }, { status: 500 });
-    }
     const staffId = params.staffId;
     const body = await request.json();
     const validatedData = updateStaffSchema.parse(body);
@@ -59,20 +70,18 @@ export async function PUT(
     const docRef = db.collection(STAFF_COLLECTION).doc(staffId);
     await docRef.update(validatedData);
     
-    // Fetch the updated document to return it
     const updatedDocSnap = await docRef.get();
     if (!updatedDocSnap.exists) {
-        // This should ideally not happen if update was successful
         return NextResponse.json({ message: 'Staff member not found after update' }, { status: 404 });
     }
 
     return NextResponse.json({ id: updatedDocSnap.id, ...updatedDocSnap.data() });
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ message: 'Validation failed', errors: error.errors }, { status: 400 });
     }
-    console.error(`Error updating staff member ${params.staffId}:`, error);
-    return NextResponse.json({ message: `Error updating staff member ${params.staffId}` }, { status: 500 });
+    console.error(`API Error (PUT /api/staff/${params.staffId}): Error updating staff member:`, error);
+    return NextResponse.json({ message: `Error updating staff member ${params.staffId}. Details: ${error.message || 'Unknown server error.'}` }, { status: 500 });
   }
 }
 
@@ -80,16 +89,21 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { staffId: string } }
 ) {
+  if (firebaseAdminInitializationError) {
+    console.error(`API Error (DELETE /api/staff/${params.staffId}): Firebase Admin SDK failed to initialize.`, firebaseAdminInitializationError);
+    return NextResponse.json({ message: `Server configuration error: Firebase Admin SDK not initialized. Details: ${firebaseAdminInitializationError}` }, { status: 500 });
+  }
+  if (!db) {
+    console.error(`API Error (DELETE /api/staff/${params.staffId}): Firestore database instance (db) is null.`);
+    return NextResponse.json({ message: 'Server error: Firestore database instance is not available.' }, { status: 500 });
+  }
+
   try {
-    if (!db) {
-      console.error("Firestore admin instance (db) is not available in /api/staff/[staffId] DELETE.");
-      return NextResponse.json({ message: 'Firestore not initialized on server' }, { status: 500 });
-    }
     const staffId = params.staffId;
     await db.collection(STAFF_COLLECTION).doc(staffId).delete();
     return NextResponse.json({ message: `Staff member ${staffId} deleted successfully` });
-  } catch (error) {
-    console.error(`Error deleting staff member ${params.staffId}:`, error);
-    return NextResponse.json({ message: `Error deleting staff member ${params.staffId}` }, { status: 500 });
+  } catch (error: any) {
+    console.error(`API Error (DELETE /api/staff/${params.staffId}): Error deleting staff member:`, error);
+    return NextResponse.json({ message: `Error deleting staff member ${params.staffId}. Details: ${error.message || 'Unknown server error.'}` }, { status: 500 });
   }
 }
