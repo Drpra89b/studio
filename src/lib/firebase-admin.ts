@@ -2,6 +2,7 @@
 'use server'; // This must be the very first line
 import * as admin from 'firebase-admin';
 
+// Define the expected structure of service account credentials
 interface ServiceAccount {
   projectId?: string;
   clientEmail?: string;
@@ -22,16 +23,22 @@ try {
   console.log(`FIREBASE_CLIENT_EMAIL present: ${!!clientEmail}`);
   console.log(`FIREBASE_PRIVATE_KEY present: ${!!privateKeyEnv}`);
 
+  if (privateKeyEnv === "YOUR_ACTUAL_PRIVATE_KEY_HERE") {
+    const criticalErrorMsg = "CRITICAL ERROR: FIREBASE_PRIVATE_KEY is still set to the placeholder value 'YOUR_ACTUAL_PRIVATE_KEY_HERE'. Please replace it with your actual private key in the environment configuration.";
+    console.error(criticalErrorMsg);
+    firebaseAdminInitializationError = criticalErrorMsg;
+    // Intentionally throw to stop further execution if placeholder is found
+    throw new Error(criticalErrorMsg); 
+  }
 
   if (!projectId || !clientEmail || !privateKeyEnv) {
     const missingVars: string[] = [];
     if (!projectId) missingVars.push("FIREBASE_PROJECT_ID");
     if (!clientEmail) missingVars.push("FIREBASE_CLIENT_EMAIL");
-    if (!privateKeyEnv) missingVars.push("FIREBASE_PRIVATE_KEY");
+    if (!privateKeyEnv) missingVars.push("FIREBASE_PRIVATE_KEY"); // Should be caught by placeholder check if that's the issue
     firebaseAdminInitializationError = `Firebase Admin SDK not initialized. Missing env vars: ${missingVars.join(', ')}`;
     console.warn(firebaseAdminInitializationError);
   } else {
-    // Ensure privateKeyEnv is treated as a string before calling .replace
     const privateKey = String(privateKeyEnv).replace(/\\n/g, '\n');
     
     const serviceAccount: admin.ServiceAccount = {
@@ -48,12 +55,19 @@ try {
       console.log('Firebase Admin SDK initialized successfully.');
     } else {
       db = admin.app().firestore();
-      // console.log('Firebase Admin SDK already initialized. Using existing instance.'); // Optional: less verbose
+      // console.log('Firebase Admin SDK already initialized. Using existing instance.');
     }
   }
 } catch (error: any) {
-  firebaseAdminInitializationError = `Firebase Admin SDK catastrophic initialization error: ${error.message || String(error)}`;
-  console.error(firebaseAdminInitializationError, error);
+  // If the error is from the placeholder check, it's already logged.
+  // Otherwise, log the new catastrophic error.
+  if (error.message !== "CRITICAL ERROR: FIREBASE_PRIVATE_KEY is still set to the placeholder value 'YOUR_ACTUAL_PRIVATE_KEY_HERE'. Please replace it with your actual private key in the environment configuration.") {
+    firebaseAdminInitializationError = `Firebase Admin SDK catastrophic initialization error: ${error.message || String(error)}`;
+    console.error(firebaseAdminInitializationError, error);
+  } else if (!firebaseAdminInitializationError) { 
+    // Ensure firebaseAdminInitializationError is set if the catch is for the placeholder
+    firebaseAdminInitializationError = error.message;
+  }
   // db remains null
 }
 
