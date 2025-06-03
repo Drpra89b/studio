@@ -14,24 +14,40 @@ const dataFilePath = path.join(process.cwd(), 'src', 'data', 'staff.json');
 const readStaffData = (): StaffMemberFirestore[] => {
   try {
     if (!fs.existsSync(dataFilePath)) {
-      fs.writeFileSync(dataFilePath, JSON.stringify([]));
+      console.error(`Staff data file not found at ${dataFilePath}. Returning empty list. Ensure 'src/data/staff.json' exists and is committed.`);
       return [];
     }
+
     const jsonData = fs.readFileSync(dataFilePath, 'utf-8');
-    return JSON.parse(jsonData) as StaffMemberFirestore[];
+    if (jsonData.trim() === "") {
+      // If the file is empty, treat it as an empty list.
+      return [];
+    }
+    // Attempt to parse, ensure it's an array
+    const parsedData = JSON.parse(jsonData);
+    if (!Array.isArray(parsedData)) {
+        console.error(`Staff data file at ${dataFilePath} does not contain a valid JSON array. Returning empty list.`);
+        return [];
+    }
+    return parsedData as StaffMemberFirestore[];
   } catch (error) {
-    console.error('Error reading staff data file:', error);
-    return [];
+    console.error(`Error reading or parsing staff data file (${dataFilePath}):`, error);
+    return []; // Return empty array on error
   }
 };
 
 // Helper function to write data to the JSON file
 const writeStaffData = (data: StaffMemberFirestore[]): void => {
   try {
-    const jsonData = JSON.stringify(data, null, 2);
+    const dataDir = path.dirname(dataFilePath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true }); // Ensure directory exists
+    }
+    const jsonData = JSON.stringify(data, null, 2); // Pretty print JSON
     fs.writeFileSync(dataFilePath, jsonData, 'utf-8');
   } catch (error) {
     console.error('Error writing staff data file:', error);
+    // Consider re-throwing or more specific error handling if needed for runtime
   }
 };
 
@@ -46,7 +62,6 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { staffId: string } }
 ) {
-  // IMPORTANT WARNING (Same as main route)
   try {
     const staffId = params.staffId;
     const staffMembers = readStaffData();
@@ -68,7 +83,6 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: { staffId: string } }
 ) {
-  // IMPORTANT WARNING (Same as main route)
   try {
     const staffId = params.staffId;
     const body = await request.json();
@@ -83,6 +97,19 @@ export async function PUT(
     if (staffIndex === -1) {
         return NextResponse.json({ message: 'API (File): Staff member not found for update' }, { status: 404 });
     }
+
+    // Check for username/email conflicts if they are being changed
+    if (validatedData.username && validatedData.username !== staffMembers[staffIndex].username) {
+        if (staffMembers.some(staff => staff.id !== staffId && staff.username === validatedData.username)) {
+            return NextResponse.json({ message: 'Username already exists.' }, { status: 409 });
+        }
+    }
+    if (validatedData.email && validatedData.email !== staffMembers[staffIndex].email) {
+        if (staffMembers.some(staff => staff.id !== staffId && staff.email === validatedData.email)) {
+            return NextResponse.json({ message: 'Email already exists.' }, { status: 409 });
+        }
+    }
+
 
     staffMembers[staffIndex] = { ...staffMembers[staffIndex], ...validatedData };
     writeStaffData(staffMembers);
@@ -104,7 +131,6 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { staffId: string } }
 ) {
-  // IMPORTANT WARNING (Same as main route)
   try {
     const staffId = params.staffId;
     let staffMembers = readStaffData();
