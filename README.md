@@ -1,4 +1,4 @@
-
+minal
 # MediStore - Pharmacy Management System
 
 MediStore is a Next.js-based application designed for pharmacy management, including billing, stock control, and staff management.
