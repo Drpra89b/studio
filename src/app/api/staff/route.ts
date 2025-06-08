@@ -3,19 +3,19 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 import * as z from 'zod';
-import { supabase } from '@/lib/supabaseClient';
+import { supabaseAdmin } from '@/lib/supabaseAdmin'; // Use Admin client
 import { getSocketServer } from '@/lib/socket-server'; 
 
 // Schema for StaffMember from Supabase
-// Includes fields typically returned by Supabase (id: uuid, created_at)
+// Includes fields typically returned by Supabase (id: uuid, created_at, updated_at)
 const staffSchemaSupabase = z.object({
   id: z.string().uuid(),
   name: z.string(),
   username: z.string(),
   email: z.string().email(),
   status: z.enum(["Active", "Disabled"]),
-  created_at: z.string().datetime().optional(), // Supabase returns ISO string
-  updated_at: z.string().datetime().optional(), // Supabase returns ISO string
+  created_at: z.string().datetime().optional(), 
+  updated_at: z.string().datetime().optional(), 
 });
 export type StaffMemberSupabase = z.infer<typeof staffSchemaSupabase>;
 
@@ -30,7 +30,7 @@ const createStaffSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const { data: staffMembers, error } = await supabase
+    const { data: staffMembers, error } = await supabaseAdmin // Use Admin client
       .from('staff')
       .select('*')
       .order('created_at', { ascending: false });
@@ -42,9 +42,9 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json(staffMembers);
   } catch (error: any) {
-    console.error('API Error (GET /api/staff - Supabase):', error);
+    console.error('API Error (GET /api/staff - Supabase Admin):', error);
     return NextResponse.json({ 
-      message: `API (Supabase): Error fetching staff. Details: ${error.message || 'Unknown server error.'}` 
+      message: `API (Supabase Admin): Error fetching staff. Details: ${error.message || 'Unknown server error.'}` 
     }, { status: 500 });
   }
 }
@@ -54,20 +54,17 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createStaffSchema.parse(body);
 
-    // Password is in validatedData but not directly saved to the staff table here.
-    // Supabase Auth would handle user creation with passwords separately.
-    // We are creating a staff *profile*.
     const { name, username, email, status } = validatedData;
 
-    const { data: newStaffMember, error } = await supabase
+    const { data: newStaffMember, error } = await supabaseAdmin // Use Admin client
       .from('staff')
-      .insert([{ name, username, email, status }])
+      .insert([{ name, username, email, status }]) // password is not stored here
       .select()
-      .single(); // Assuming you want the inserted record back
+      .single(); 
 
     if (error) {
       console.error('Supabase POST error:', error);
-      if (error.code === '23505') { // Unique violation
+      if (error.code === '23505') { 
         if (error.message.includes('staff_username_key')) {
           return NextResponse.json({ message: 'Username already exists.' }, { status: 409 });
         }
@@ -78,14 +75,16 @@ export async function POST(request: NextRequest) {
       throw error;
     }
     
-    console.log("API (Supabase): Added staff member:", newStaffMember);
+    console.log("API (Supabase Admin): Added staff member:", newStaffMember);
 
-    // Emit event via Socket.IO
     const io = getSocketServer();
-    if (io) {
+    if (io && newStaffMember) {
       io.emit('staffAdded', newStaffMember);
-      console.log('Socket.IO: Emitted staffAdded event (Supabase)', newStaffMember);
-    } else {
+      console.log('Socket.IO: Emitted staffAdded event (Supabase Admin)', newStaffMember);
+    } else if (!newStaffMember) {
+      console.warn('Socket.IO: newStaffMember was null, could not emit staffAdded event.');
+    }
+     else {
       console.warn('Socket.IO server not available, could not emit staffAdded event. This may be expected in some serverless environments.');
     }
     
@@ -94,9 +93,9 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ message: 'Validation failed', errors: error.errors }, { status: 400 });
     }
-    console.error('API Error (POST /api/staff - Supabase):', error);
+    console.error('API Error (POST /api/staff - Supabase Admin):', error);
     return NextResponse.json({ 
-      message: `API (Supabase): Error creating staff member. Details: ${error.message || 'Unknown server error.'}`
+      message: `API (Supabase Admin): Error creating staff member. Details: ${error.message || 'Unknown server error.'}`
     }, { status: 500 });
   }
 }

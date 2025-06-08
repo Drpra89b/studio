@@ -1,11 +1,9 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 import * as z from 'zod';
-import { supabase } from '@/lib/supabaseClient';
+import { supabaseAdmin } from '@/lib/supabaseAdmin'; // Use Admin client
 
-// Zod schema for validation
 const pharmacyProfileFormSchema = z.object({
-  // Using a fixed ID for the single profile record for easier upsert/query
   id: z.string().uuid().default('00000000-0000-0000-0000-000000000001'), 
   pharmacyName: z.string().min(2, "Pharmacy name must be at least 2 characters."),
   invoiceTitle: z.string().min(1, "Invoice title is required."),
@@ -20,18 +18,19 @@ const pharmacyProfileFormSchema = z.object({
   gstin: z.string().optional().refine(val => !val || val.length === 15, {
     message: "GSTIN must be 15 characters long if provided.",
   }),
-  // Supabase automatically handles created_at and updated_at
 });
 type PharmacyProfileFormValues = z.infer<typeof pharmacyProfileFormSchema>;
 
 const DEFAULT_PROFILE_ID = '00000000-0000-0000-0000-000000000001';
 
-// Placeholder for Supabase table creation SQL and RLS policies.
-// User needs to execute this in their Supabase SQL Editor.
+// SQL DDL for pharmacy_profile table (Execute in Supabase SQL Editor)
 /*
--- Create the pharmacy_profile table in Supabase
+-- Ensure the table uses uuid-ossp extension if not already enabled
+-- CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Create the pharmacy_profile table
 CREATE TABLE IF NOT EXISTS public.pharmacy_profile (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  id uuid PRIMARY KEY DEFAULT '00000000-0000-0000-0000-000000000001', -- Fixed ID for single profile
   pharmacy_name TEXT NOT NULL,
   invoice_title TEXT NOT NULL,
   address_street TEXT NOT NULL,
@@ -47,7 +46,7 @@ CREATE TABLE IF NOT EXISTS public.pharmacy_profile (
   updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
 );
 
--- Optional: Create a trigger to automatically update updated_at
+-- Optional: Trigger to automatically update updated_at on row modification
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -56,49 +55,71 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER on_pharmacy_profile_updated
-  BEFORE UPDATE ON public.pharmacy_profile
-  FOR EACH ROW
-  EXECUTE PROCEDURE public.handle_updated_at();
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_trigger
+    WHERE tgname = 'on_pharmacy_profile_updated'
+  ) THEN
+    CREATE TRIGGER on_pharmacy_profile_updated
+      BEFORE UPDATE ON public.pharmacy_profile
+      FOR EACH ROW
+      EXECUTE PROCEDURE public.handle_updated_at();
+  END IF;
+END $$;
 
--- Enable Row Level Security (RLS) on the table
+
+-- Enable Row Level Security (RLS)
 ALTER TABLE public.pharmacy_profile ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies (EXAMPLES - User MUST tailor these for security)
--- For server-side API routes using the ANON key, these allow operations.
--- For production, using the SERVICE_ROLE_KEY (bypasses RLS) from backend is safer for admin operations,
--- or implement proper user role-based RLS.
+-- RLS Policies:
+-- IMPORTANT: Since the backend API will use the SERVICE_ROLE_KEY (via supabaseAdmin client),
+-- these policies are mainly for potential direct client access (e.g., if you used the anon key or user auth).
+-- The service role key BYPASSES RLS. If your API is the *only* way data is written,
+-- these policies can be simpler or even just "public read".
 
--- Allow public read access (adjust if profile should be protected)
+-- Example: Allow public read access (adjust if profile should be protected from direct client reads)
+DROP POLICY IF EXISTS "Allow public read access to pharmacy profile" ON public.pharmacy_profile;
 CREATE POLICY "Allow public read access to pharmacy profile"
   ON public.pharmacy_profile FOR SELECT
   USING (true);
 
--- Allow authenticated users (or anon for server-side) to insert/update
--- For a single profile, you might restrict insert to one record or use upsert logic.
-CREATE POLICY "Allow insert for authorized users or server"
+-- Example: If API uses service role, it bypasses these. If it used anon key, this would be needed.
+-- For a single profile record, we use upsert logic in the API.
+-- Direct insert/update policies for anon/authed users would need care due to the single-record nature.
+-- For simplicity with service_role_key on backend, explicit insert/update policies for anon/authed can be restrictive or omitted
+-- if all writes go through your trusted backend API.
+
+-- Example: Restrict direct modification by anon users if you want to be safe,
+-- relying on your backend API (using service role) to handle changes.
+DROP POLICY IF EXISTS "Disallow direct insert for anon users" ON public.pharmacy_profile;
+CREATE POLICY "Disallow direct insert for anon users"
   ON public.pharmacy_profile FOR INSERT
-  WITH CHECK (true); -- Consider more restrictive checks
+  WITH CHECK (false);
 
-CREATE POLICY "Allow update for authorized users or server"
+DROP POLICY IF EXISTS "Disallow direct update for anon users" ON public.pharmacy_profile;
+CREATE POLICY "Disallow direct update for anon users"
   ON public.pharmacy_profile FOR UPDATE
-  USING (true) -- User must own the record or have specific role
-  WITH CHECK (true);
+  USING (false)
+  WITH CHECK (false);
 
--- Ensure only one profile record can exist (using the fixed ID)
--- This can also be enforced by application logic or a unique constraint on a non-PK field if ID wasn't fixed.
-
--- Example: If using the fixed ID '00000000-0000-0000-0000-000000000001'
--- The insert policy could check this id.
+-- If you did want to allow anon key (used server-side by supabaseClient) to modify:
+-- DROP POLICY IF EXISTS "Allow server (anon key) to upsert pharmacy profile" ON public.pharmacy_profile;
+-- CREATE POLICY "Allow server (anon key) to upsert pharmacy profile"
+--   ON public.pharmacy_profile FOR ALL -- Covers INSERT, UPDATE
+--   USING (true)
+--   WITH CHECK (true);
 */
+
 
 export async function GET(request: NextRequest) {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin // Use Admin client
       .from('pharmacy_profile')
       .select('*')
-      .eq('id', DEFAULT_PROFILE_ID) // Assuming a single profile record with a fixed ID
-      .maybeSingle(); // Use maybeSingle() if the record might not exist yet
+      .eq('id', DEFAULT_PROFILE_ID)
+      .maybeSingle();
 
     if (error) {
       console.error('Supabase GET /api/pharmacy-profile error:', error);
@@ -126,9 +147,9 @@ export async function GET(request: NextRequest) {
       });
     }
   } catch (error: any) {
-    console.error('API Error (GET /api/pharmacy-profile - Supabase):', error);
+    console.error('API Error (GET /api/pharmacy-profile - Supabase Admin):', error);
     return NextResponse.json({ 
-      message: `API (Supabase): Error fetching pharmacy profile. Details: ${error.message || 'Unknown server error.'}` 
+      message: `API (Supabase Admin): Error fetching pharmacy profile. Details: ${error.message || 'Unknown server error.'}` 
     }, { status: 500 });
   }
 }
@@ -137,12 +158,12 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     // Ensure the fixed ID is part of the data for upsert
-    const dataToUpsert = { ...body, id: DEFAULT_PROFILE_ID };
+    const dataToUpsert = { ...body, id: DEFAULT_PROFILE_ID, updated_at: new Date().toISOString() };
     const validatedData = pharmacyProfileFormSchema.parse(dataToUpsert);
 
-    const { data: upsertedProfile, error } = await supabase
+    const { data: upsertedProfile, error } = await supabaseAdmin // Use Admin client
       .from('pharmacy_profile')
-      .upsert(validatedData, { onConflict: 'id' }) // Upsert based on the fixed ID
+      .upsert(validatedData, { onConflict: 'id' }) 
       .select()
       .single();
 
@@ -151,15 +172,14 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
-    return NextResponse.json({ message: 'Profile updated successfully (Supabase)', data: upsertedProfile });
+    return NextResponse.json({ message: 'Profile updated successfully (Supabase Admin)', data: upsertedProfile });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ message: 'Validation failed', errors: error.errors }, { status: 400 });
     }
-    console.error('API Error (POST /api/pharmacy-profile - Supabase):', error);
+    console.error('API Error (POST /api/pharmacy-profile - Supabase Admin):', error);
     return NextResponse.json({ 
-      message: `API (Supabase): Error saving pharmacy profile. Details: ${error.message || 'Unknown server error.'}`
+      message: `API (Supabase Admin): Error saving pharmacy profile. Details: ${error.message || 'Unknown server error.'}`
     }, { status: 500 });
   }
 }
-    
