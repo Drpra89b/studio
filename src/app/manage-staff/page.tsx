@@ -5,6 +5,7 @@ import * as React from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import io, { type Socket } from "socket.io-client";
 
 import PageHeader from "@/components/shared/page-header";
 import { Users, UserPlus, Edit, UserCheck, UserX, Trash2, Loader2 } from "lucide-react";
@@ -66,6 +67,7 @@ const editStaffFormSchema = z.object({
 });
 type EditStaffFormValues = z.infer<typeof editStaffFormSchema>;
 
+let socket: Socket | null = null;
 
 export default function ManageStaffPage() {
   const { toast } = useToast();
@@ -111,7 +113,60 @@ export default function ManageStaffPage() {
 
   React.useEffect(() => {
     fetchStaff();
-  }, []);
+
+    // Initialize Socket.IO client connection
+    // We fetch /api/socket to ensure the backend initializes the IO server.
+    // This is a common pattern for Next.js with Socket.IO.
+    const initializeSocket = async () => {
+      await fetch('/api/socket'); // Ensures server-side IO is initialized
+
+      socket = io(undefined!, { // undefined! uses the current host
+        path: '/api/socket_io', // Must match server-side path
+        addTrailingSlash: false,
+      });
+
+      socket.on('connect', () => {
+        console.log('Socket.IO: Connected to server');
+        toast({ title: "Realtime Active", description: "Connected for live staff updates.", variant: "default" });
+      });
+
+      socket.on('disconnect', () => {
+        console.log('Socket.IO: Disconnected from server');
+        toast({ title: "Realtime Inactive", description: "Disconnected from live updates.", variant: "destructive" });
+      });
+      
+      socket.on('staffAdded', (newStaffMember: StaffMember) => {
+        console.log('Socket.IO: staffAdded event received', newStaffMember);
+        setStaffList((prevList) => {
+          // Avoid adding duplicates if the current client was the one who added
+          if (prevList.find(staff => staff.id === newStaffMember.id)) {
+            return prevList;
+          }
+          return [newStaffMember, ...prevList];
+        });
+        toast({
+          title: "Staff List Updated",
+          description: `${newStaffMember.name} was added.`,
+        });
+      });
+
+      // Add listeners for staffUpdated and staffDeleted if implementing those in realtime
+      // socket.on('staffUpdated', (updatedStaff: StaffMember) => { ... });
+      // socket.on('staffDeleted', (staffId: string) => { ... });
+    };
+
+    initializeSocket();
+
+    return () => {
+      // Disconnect socket on component unmount
+      if (socket) {
+        socket.disconnect();
+        socket = null;
+        console.log('Socket.IO: Disconnected on component unmount.');
+      }
+    };
+  }, [toast]);
+
 
   const addForm = useForm<AddStaffFormValues>({
     resolver: zodResolver(addStaffFormSchema),
@@ -139,12 +194,15 @@ export default function ManageStaffPage() {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to create staff member');
       }
-      // const newStaffMember = await response.json();
-      // setStaffList(prevStaff => [newStaffMember, ...prevStaff]); // Optimistic update or re-fetch
-      await fetchStaff(); // Re-fetch to ensure consistency
+      // const newStaffMember = await response.json(); // Data now comes via socket
+      // No need to manually update staffList here if socket event handles it.
+      // However, for the client that initiated the action, it might be good to fetch or rely on socket.
+      // For simplicity, we'll let the socket event update all clients, including this one.
+      // await fetchStaff(); // Re-fetch could be an option if socket is not used for self-update.
+      
       toast({
         title: "Staff User Created",
-        description: `${data.name} (Username: ${data.username}) has been added as an active staff member.`,
+        description: `${data.name} (Username: ${data.username}) has been added. List will update via realtime.`,
       });
       addForm.reset();
       setIsAddStaffDialogOpen(false);
@@ -183,13 +241,8 @@ export default function ManageStaffPage() {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to update staff member');
       }
-      // const updatedStaffMember = await response.json();
-      // setStaffList(prevStaffList =>
-      //   prevStaffList.map(staff =>
-      //     staff.id === updatedStaffMember.id ? updatedStaffMember : staff
-      //   )
-      // );
-      await fetchStaff(); // Re-fetch to ensure consistency
+      // TODO: Emit 'staffUpdated' event from backend and handle on client
+      await fetchStaff(); // Re-fetch to ensure consistency until full realtime update is built
       toast({
         title: "Staff User Updated",
         description: `${data.name}'s details have been updated.`,
@@ -220,10 +273,7 @@ export default function ManageStaffPage() {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to update staff status');
       }
-      // const updatedStaffMember = await response.json();
-      // setStaffList(prevStaffList =>
-      //   prevStaffList.map(staff => (staff.id === updatedStaffMember.id ? updatedStaffMember : staff))
-      // );
+      // TODO: Emit 'staffUpdated' event from backend and handle on client
       await fetchStaff(); // Re-fetch to ensure consistency
       toast({
         title: "Staff Status Updated",
@@ -251,7 +301,7 @@ export default function ManageStaffPage() {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to delete staff member');
       }
-      // setStaffList(prevStaffList => prevStaffList.filter(staff => staff.id !== staffId));
+      // TODO: Emit 'staffDeleted' event from backend and handle on client
       await fetchStaff(); // Re-fetch to ensure consistency
       toast({
         title: "Staff User Deleted",
@@ -285,7 +335,7 @@ export default function ManageStaffPage() {
         <CardHeader className="flex flex-row justify-between items-center">
           <div>
             <CardTitle>Staff List</CardTitle>
-            <CardDescription>Overview of all staff members and their status.</CardDescription>
+            <CardDescription>Overview of all staff members and their status. New additions will appear in realtime.</CardDescription>
           </div>
           <Dialog open={isAddStaffDialogOpen} onOpenChange={setIsAddStaffDialogOpen}>
             <DialogTrigger asChild>

@@ -5,6 +5,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import * as z from 'zod';
 import fs from 'fs';
 import path from 'path';
+import { getSocketServer } from '@/lib/socket-server'; // Import the getter
 
 // Path to the JSON file
 const dataFilePath = path.join(process.cwd(), 'src', 'data', 'staff.json');
@@ -25,7 +26,16 @@ export type StaffMemberFirestore = z.infer<typeof staffSchemaFirestore>;
 const readStaffData = (): StaffMemberFirestore[] => {
   try {
     if (!fs.existsSync(dataFilePath)) {
-      console.error(`Staff data file not found at ${dataFilePath}. Returning empty list. Ensure 'src/data/staff.json' exists and is committed.`);
+      console.warn(`Staff data file not found at ${dataFilePath}. Returning empty list. Ensure 'src/data/staff.json' exists.`);
+      // Attempt to create the directory if it doesn't exist
+      const dataDir = path.dirname(dataFilePath);
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+        console.log(`Created directory: ${dataDir}`);
+      }
+      // Attempt to create the file with an empty array if it doesn't exist
+      fs.writeFileSync(dataFilePath, JSON.stringify([], null, 2), 'utf-8');
+      console.log(`Created staff data file with empty array: ${dataFilePath}`);
       return [];
     }
 
@@ -43,7 +53,9 @@ const readStaffData = (): StaffMemberFirestore[] => {
     return parsedData as StaffMemberFirestore[];
   } catch (error) {
     console.error(`Error reading or parsing staff data file (${dataFilePath}):`, error);
-    return []; // Return empty array on error
+    // In case of error, try to return an empty list instead of throwing,
+    // to prevent build failures if the file is temporarily malformed or inaccessible.
+    return []; 
   }
 };
 
@@ -75,7 +87,7 @@ export async function GET(request: NextRequest) {
     const staffMembers = readStaffData();
     return NextResponse.json(staffMembers);
   } catch (error: any) {
-    console.error('API Error (GET /api/staff - File): Unhandled exception:', error);
+    console.error('API Error (GET /api/staff - File): Unhandled exception during read:', error);
     return NextResponse.json({ 
       message: `API (File): Error fetching staff. Details: ${error.message || 'Unknown server error.'}. File-based storage limitations reminder.` 
     }, { status: 500 });
@@ -108,6 +120,16 @@ export async function POST(request: NextRequest) {
     writeStaffData(staffMembers);
     
     console.log("API (File): Added staff member:", newStaffMember);
+
+    // Emit event via Socket.IO
+    const io = getSocketServer();
+    if (io) {
+      io.emit('staffAdded', newStaffMember);
+      console.log('Socket.IO: Emitted staffAdded event', newStaffMember);
+    } else {
+      console.warn('Socket.IO server not available, could not emit staffAdded event.');
+    }
+    
     return NextResponse.json(newStaffMember, { status: 201 });
   } catch (error: any) {
     if (error instanceof z.ZodError) {
