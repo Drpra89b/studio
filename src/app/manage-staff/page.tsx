@@ -103,7 +103,7 @@ export default function ManageStaffPage() {
       console.error("Failed to fetch staff list from API:", error);
       toast({
         title: "Error Loading Staff",
-        description: (error as Error).message, // This will now use the more specific errorDescription
+        description: (error as Error).message, 
         variant: "destructive",
       });
     } finally {
@@ -115,50 +115,55 @@ export default function ManageStaffPage() {
     fetchStaff();
 
     // Initialize Socket.IO client connection
-    // We fetch /api/socket to ensure the backend initializes the IO server.
-    // This is a common pattern for Next.js with Socket.IO.
-    const initializeSocket = async () => {
-      await fetch('/api/socket'); // Ensures server-side IO is initialized
+    const initializeSocket = () => {
+      // The client attempts to connect.
+      // The `fetch('/api/socket')` call is removed as it's less suitable for Vercel's serverless model
+      // and the Pages API route `src/pages/api/socket.ts` might not be consistently served or effective there.
+      // The Socket.IO client will attempt to connect to the path defined on the server-side setup.
+      // In a local dev environment, this might connect to the server instance running via `next dev`.
+      // On Vercel, true realtime broadcasting from API routes to clients is challenging with this basic setup.
 
       socket = io(undefined!, { // undefined! uses the current host
-        path: '/api/socket_io', // Must match server-side path
+        path: '/api/socket_io', // Must match server-side path in `src/lib/socket-server.ts`
         addTrailingSlash: false,
+        reconnectionAttempts: 3, // Attempt to reconnect a few times
       });
 
       socket.on('connect', () => {
         console.log('Socket.IO: Connected to server');
-        toast({ title: "Realtime Active", description: "Connected for live staff updates.", variant: "default" });
+        toast({ title: "Realtime Active", description: "Attempting to connect for live staff updates.", variant: "default" });
       });
 
-      socket.on('disconnect', () => {
-        console.log('Socket.IO: Disconnected from server');
-        toast({ title: "Realtime Inactive", description: "Disconnected from live updates.", variant: "destructive" });
+      socket.on('connect_error', (err) => {
+        console.error('Socket.IO: Connection error:', err.message);
+        toast({ title: "Realtime Connection Issue", description: `Could not connect for live updates: ${err.message}. Realtime features may be unavailable.`, variant: "destructive" });
+      });
+      
+      socket.on('disconnect', (reason) => {
+        console.log('Socket.IO: Disconnected from server. Reason:', reason);
+        if (reason !== 'io client disconnect') { // Don't toast if client intentionally disconnected
+            toast({ title: "Realtime Inactive", description: "Disconnected from live updates.", variant: "destructive" });
+        }
       });
       
       socket.on('staffAdded', (newStaffMember: StaffMember) => {
         console.log('Socket.IO: staffAdded event received', newStaffMember);
         setStaffList((prevList) => {
-          // Avoid adding duplicates if the current client was the one who added
           if (prevList.find(staff => staff.id === newStaffMember.id)) {
             return prevList;
           }
           return [newStaffMember, ...prevList];
         });
         toast({
-          title: "Staff List Updated",
+          title: "Staff List Updated (Realtime)",
           description: `${newStaffMember.name} was added.`,
         });
       });
-
-      // Add listeners for staffUpdated and staffDeleted if implementing those in realtime
-      // socket.on('staffUpdated', (updatedStaff: StaffMember) => { ... });
-      // socket.on('staffDeleted', (staffId: string) => { ... });
     };
 
     initializeSocket();
 
     return () => {
-      // Disconnect socket on component unmount
       if (socket) {
         socket.disconnect();
         socket = null;
@@ -188,21 +193,20 @@ export default function ManageStaffPage() {
       const response = await fetch('/api/staff', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({...data, status: "Active"}), // Default status to Active
+        body: JSON.stringify({...data, status: "Active"}), 
       });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to create staff member');
       }
-      // const newStaffMember = await response.json(); // Data now comes via socket
-      // No need to manually update staffList here if socket event handles it.
-      // However, for the client that initiated the action, it might be good to fetch or rely on socket.
-      // For simplicity, we'll let the socket event update all clients, including this one.
-      // await fetchStaff(); // Re-fetch could be an option if socket is not used for self-update.
+      // The new staff member data should be received via the 'staffAdded' socket event if connected.
+      // If not connected, a manual fetchStaff() might be needed for immediate UI update,
+      // but for realtime, we rely on the socket.
+      // await fetchStaff(); // Optional: uncomment if socket updates are unreliable or for fallback
       
       toast({
         title: "Staff User Created",
-        description: `${data.name} (Username: ${data.username}) has been added. List will update via realtime.`,
+        description: `${data.name} (Username: ${data.username}) has been added.`,
       });
       addForm.reset();
       setIsAddStaffDialogOpen(false);
@@ -219,7 +223,7 @@ export default function ManageStaffPage() {
 
   const handleEditStaff = (staff: StaffMember) => {
     setEditingStaff(staff);
-    editForm.reset({ // Set default values for the edit form
+    editForm.reset({ 
       id: staff.id,
       name: staff.name,
       username: staff.username,
@@ -235,14 +239,14 @@ export default function ManageStaffPage() {
       const response = await fetch(`/api/staff/${editingStaff.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: data.name, username: data.username, email: data.email }), // Only send editable fields
+        body: JSON.stringify({ name: data.name, username: data.username, email: data.email }), 
       });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to update staff member');
       }
-      // TODO: Emit 'staffUpdated' event from backend and handle on client
-      await fetchStaff(); // Re-fetch to ensure consistency until full realtime update is built
+      // TODO: Emit 'staffUpdated' event from backend and handle on client for full realtime
+      await fetchStaff(); 
       toast({
         title: "Staff User Updated",
         description: `${data.name}'s details have been updated.`,
@@ -273,8 +277,8 @@ export default function ManageStaffPage() {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to update staff status');
       }
-      // TODO: Emit 'staffUpdated' event from backend and handle on client
-      await fetchStaff(); // Re-fetch to ensure consistency
+      // TODO: Emit 'staffUpdated' event from backend for status change too
+      await fetchStaff(); 
       toast({
         title: "Staff Status Updated",
         description: `${staffMemberName} has been ${newStatus === "Active" ? "enabled" : "disabled"}.`,
@@ -302,7 +306,7 @@ export default function ManageStaffPage() {
         throw new Error(errorData.message || 'Failed to delete staff member');
       }
       // TODO: Emit 'staffDeleted' event from backend and handle on client
-      await fetchStaff(); // Re-fetch to ensure consistency
+      await fetchStaff(); 
       toast({
         title: "Staff User Deleted",
         description: `Staff member ${staffMemberName} has been permanently deleted.`,
@@ -335,7 +339,7 @@ export default function ManageStaffPage() {
         <CardHeader className="flex flex-row justify-between items-center">
           <div>
             <CardTitle>Staff List</CardTitle>
-            <CardDescription>Overview of all staff members and their status. New additions will appear in realtime.</CardDescription>
+            <CardDescription>Overview of all staff members. Realtime updates for additions may occur if connected.</CardDescription>
           </div>
           <Dialog open={isAddStaffDialogOpen} onOpenChange={setIsAddStaffDialogOpen}>
             <DialogTrigger asChild>
@@ -523,3 +527,4 @@ export default function ManageStaffPage() {
     </div>
   );
 }
+

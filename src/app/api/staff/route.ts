@@ -5,7 +5,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import * as z from 'zod';
 import fs from 'fs';
 import path from 'path';
-import { getSocketServer } from '@/lib/socket-server'; // Import the getter
+import { getSocketServer } from '@/lib/socket-server'; 
 
 // Path to the JSON file
 const dataFilePath = path.join(process.cwd(), 'src', 'data', 'staff.json');
@@ -25,26 +25,21 @@ export type StaffMemberFirestore = z.infer<typeof staffSchemaFirestore>;
 // Helper function to read data from the JSON file
 const readStaffData = (): StaffMemberFirestore[] => {
   try {
+    const dataDir = path.dirname(dataFilePath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+      console.log(`Created directory: ${dataDir}`);
+    }
     if (!fs.existsSync(dataFilePath)) {
-      console.warn(`Staff data file not found at ${dataFilePath}. Returning empty list. Ensure 'src/data/staff.json' exists.`);
-      // Attempt to create the directory if it doesn't exist
-      const dataDir = path.dirname(dataFilePath);
-      if (!fs.existsSync(dataDir)) {
-        fs.mkdirSync(dataDir, { recursive: true });
-        console.log(`Created directory: ${dataDir}`);
-      }
-      // Attempt to create the file with an empty array if it doesn't exist
+      console.warn(`Staff data file not found at ${dataFilePath}. Creating with empty array.`);
       fs.writeFileSync(dataFilePath, JSON.stringify([], null, 2), 'utf-8');
-      console.log(`Created staff data file with empty array: ${dataFilePath}`);
       return [];
     }
 
     const jsonData = fs.readFileSync(dataFilePath, 'utf-8');
     if (jsonData.trim() === "") {
-      // If the file is empty, treat it as an empty list.
       return [];
     }
-    // Attempt to parse, ensure it's an array
     const parsedData = JSON.parse(jsonData);
     if (!Array.isArray(parsedData)) {
         console.error(`Staff data file at ${dataFilePath} does not contain a valid JSON array. Returning empty list.`);
@@ -53,8 +48,7 @@ const readStaffData = (): StaffMemberFirestore[] => {
     return parsedData as StaffMemberFirestore[];
   } catch (error) {
     console.error(`Error reading or parsing staff data file (${dataFilePath}):`, error);
-    // In case of error, try to return an empty list instead of throwing,
-    // to prevent build failures if the file is temporarily malformed or inaccessible.
+    // Attempt to return an empty list to prevent crashes if file is malformed during build/runtime
     return []; 
   }
 };
@@ -64,13 +58,12 @@ const writeStaffData = (data: StaffMemberFirestore[]): void => {
   try {
     const dataDir = path.dirname(dataFilePath);
     if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true }); // Ensure directory exists
+      fs.mkdirSync(dataDir, { recursive: true }); 
     }
-    const jsonData = JSON.stringify(data, null, 2); // Pretty print JSON
+    const jsonData = JSON.stringify(data, null, 2); 
     fs.writeFileSync(dataFilePath, jsonData, 'utf-8');
   } catch (error) {
     console.error('Error writing staff data file:', error);
-    // Consider re-throwing or more specific error handling if needed for runtime
   }
 };
 
@@ -78,7 +71,7 @@ const createStaffSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   username: z.string().min(3, { message: "Username must be at least 3 characters." }).regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores."),
   email: z.string().email({ message: "Please enter a valid email address." }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters." }), // Password not used directly in storage
+  password: z.string().min(6, { message: "Password must be at least 6 characters." }), 
   status: z.enum(["Active", "Disabled"]).default("Active"),
 });
 
@@ -127,7 +120,7 @@ export async function POST(request: NextRequest) {
       io.emit('staffAdded', newStaffMember);
       console.log('Socket.IO: Emitted staffAdded event', newStaffMember);
     } else {
-      console.warn('Socket.IO server not available, could not emit staffAdded event.');
+      console.warn('Socket.IO server not available, could not emit staffAdded event. This may be expected in some serverless environments.');
     }
     
     return NextResponse.json(newStaffMember, { status: 201 });
@@ -141,3 +134,4 @@ export async function POST(request: NextRequest) {
     }, { status: 500 });
   }
 }
+
