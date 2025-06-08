@@ -1,25 +1,20 @@
 
 'use server';
 
-// This file is currently a placeholder.
-// The staff management feature has been updated to use file-based storage
-// and does not rely on Firebase Admin SDK for its core functionality.
-//
-// If you decide to re-integrate or add other Firebase backend services
-// (like Firestore for other data, Firebase Authentication, etc.),
-// this file will need to be updated with the proper Firebase Admin SDK
-// initialization logic, and you'll need to ensure the corresponding
-// environment variables (FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL,
-// FIREBASE_PRIVATE_KEY) are correctly configured in your hosting environment.
+// This file is for Firebase Admin SDK initialization.
+// Since we are migrating to Supabase for staff management, 
+// this file might be used for other Firebase services in the future (e.g., Firebase Auth, FCM).
+// For now, it remains non-initializing for the staff feature.
 
-export const db = null; // Firestore instance would be here
+export const db = null; // Firestore instance would be here if using Firestore
 export const firebaseAdminInitializationError: string | null =
-  "Firebase Admin SDK is not actively initialized for current backend features (e.g., staff management uses file storage).";
+  "Firebase Admin SDK is not actively initialized for staff management (using Supabase). It can be configured for other Firebase services.";
 
-// To re-enable Firebase Admin SDK, you would:
+// To enable Firebase Admin SDK for other services:
 // 1. Ensure 'firebase-admin' is in your package.json.
 // 2. Uncomment and complete the initialization code below.
-// 3. Set up the required environment variables in your hosting provider.
+// 3. Set up the required environment variables (FIREBASE_PROJECT_ID, etc.)
+//    in your .env.local and hosting provider.
 /*
 import * as admin from 'firebase-admin';
 
@@ -45,7 +40,7 @@ try {
 
   const projectId = process.env.FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY; // Comes directly from environment
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY; 
 
   if (!projectId || !clientEmail || !privateKey) {
     const missingVars: string[] = [];
@@ -54,17 +49,17 @@ try {
     if (!privateKey) missingVars.push('FIREBASE_PRIVATE_KEY');
     localFirebaseAdminInitializationError = `Firebase Admin SDK not initialized. Missing env vars: ${missingVars.join(', ')}. Check hosting configuration.`;
     console.error(localFirebaseAdminInitializationError);
-  } else if (privateKey === "YOUR_ACTUAL_PRIVATE_KEY_HERE") {
+  } else if (privateKey === "YOUR_ACTUAL_PRIVATE_KEY_HERE") { // Placeholder check
     localFirebaseAdminInitializationError = "CRITICAL ERROR: FIREBASE_PRIVATE_KEY is still set to the placeholder value. Update it in your hosting environment variables.";
     console.error(localFirebaseAdminInitializationError);
   } else {
     const serviceAccount: ServiceAccount = {
       type: "service_account",
       project_id: projectId,
-      private_key_id: "YOUR_PRIVATE_KEY_ID_HERE", // This can often be omitted or fetched if needed, but private_key is the critical part
-      private_key: privateKey.replace(/\\n/g, '\n'), // Ensure newlines are correctly formatted
+      private_key_id: "YOUR_PRIVATE_KEY_ID_HERE", 
+      private_key: privateKey.replace(/\\n/g, '\n'), 
       client_email: clientEmail,
-      client_id: "YOUR_CLIENT_ID_HERE", // Can often be omitted
+      client_id: "YOUR_CLIENT_ID_HERE", 
       auth_uri: "https://accounts.google.com/o/oauth2/auth",
       token_uri: "https://oauth2.googleapis.com/token",
       auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",

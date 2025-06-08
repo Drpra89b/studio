@@ -3,69 +3,22 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 import * as z from 'zod';
-import fs from 'fs';
-import path from 'path';
+import { supabase } from '@/lib/supabaseClient';
 import { getSocketServer } from '@/lib/socket-server'; 
 
-// Path to the JSON file
-const dataFilePath = path.join(process.cwd(), 'src', 'data', 'staff.json');
-
-// Schema for StaffMember (matches client-side expectation)
-// This schema is now internal to this file and not exported directly.
-const staffSchemaFirestore = z.object({
-  id: z.string(), // ID will be generated
+// Schema for StaffMember from Supabase
+// Includes fields typically returned by Supabase (id: uuid, created_at)
+const staffSchemaSupabase = z.object({
+  id: z.string().uuid(),
   name: z.string(),
   username: z.string(),
   email: z.string().email(),
   status: z.enum(["Active", "Disabled"]),
+  created_at: z.string().datetime().optional(), // Supabase returns ISO string
+  updated_at: z.string().datetime().optional(), // Supabase returns ISO string
 });
-export type StaffMemberFirestore = z.infer<typeof staffSchemaFirestore>;
+export type StaffMemberSupabase = z.infer<typeof staffSchemaSupabase>;
 
-
-// Helper function to read data from the JSON file
-const readStaffData = (): StaffMemberFirestore[] => {
-  try {
-    const dataDir = path.dirname(dataFilePath);
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-      console.log(`Created directory: ${dataDir}`);
-    }
-    if (!fs.existsSync(dataFilePath)) {
-      console.warn(`Staff data file not found at ${dataFilePath}. Creating with empty array.`);
-      fs.writeFileSync(dataFilePath, JSON.stringify([], null, 2), 'utf-8');
-      return [];
-    }
-
-    const jsonData = fs.readFileSync(dataFilePath, 'utf-8');
-    if (jsonData.trim() === "") {
-      return [];
-    }
-    const parsedData = JSON.parse(jsonData);
-    if (!Array.isArray(parsedData)) {
-        console.error(`Staff data file at ${dataFilePath} does not contain a valid JSON array. Returning empty list.`);
-        return [];
-    }
-    return parsedData as StaffMemberFirestore[];
-  } catch (error) {
-    console.error(`Error reading or parsing staff data file (${dataFilePath}):`, error);
-    // Attempt to return an empty list to prevent crashes if file is malformed during build/runtime
-    return []; 
-  }
-};
-
-// Helper function to write data to the JSON file
-const writeStaffData = (data: StaffMemberFirestore[]): void => {
-  try {
-    const dataDir = path.dirname(dataFilePath);
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true }); 
-    }
-    const jsonData = JSON.stringify(data, null, 2); 
-    fs.writeFileSync(dataFilePath, jsonData, 'utf-8');
-  } catch (error) {
-    console.error('Error writing staff data file:', error);
-  }
-};
 
 const createStaffSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -77,12 +30,21 @@ const createStaffSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const staffMembers = readStaffData();
+    const { data: staffMembers, error } = await supabase
+      .from('staff')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Supabase GET error:', error);
+      throw error;
+    }
+    
     return NextResponse.json(staffMembers);
   } catch (error: any) {
-    console.error('API Error (GET /api/staff - File): Unhandled exception during read:', error);
+    console.error('API Error (GET /api/staff - Supabase):', error);
     return NextResponse.json({ 
-      message: `API (File): Error fetching staff. Details: ${error.message || 'Unknown server error.'}. File-based storage limitations reminder.` 
+      message: `API (Supabase): Error fetching staff. Details: ${error.message || 'Unknown server error.'}` 
     }, { status: 500 });
   }
 }
@@ -92,33 +54,37 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = createStaffSchema.parse(body);
 
-    let staffMembers = readStaffData();
-    
-    if (staffMembers.some(staff => staff.username === validatedData.username)) {
-        return NextResponse.json({ message: 'Username already exists.' }, { status: 409 });
-    }
-    if (staffMembers.some(staff => staff.email === validatedData.email)) {
-        return NextResponse.json({ message: 'Email already exists.' }, { status: 409 });
-    }
+    // Password is in validatedData but not directly saved to the staff table here.
+    // Supabase Auth would handle user creation with passwords separately.
+    // We are creating a staff *profile*.
+    const { name, username, email, status } = validatedData;
 
-    const newStaffMember: StaffMemberFirestore = {
-      id: `staff-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      name: validatedData.name,
-      username: validatedData.username,
-      email: validatedData.email,
-      status: validatedData.status,
-    };
+    const { data: newStaffMember, error } = await supabase
+      .from('staff')
+      .insert([{ name, username, email, status }])
+      .select()
+      .single(); // Assuming you want the inserted record back
 
-    staffMembers.push(newStaffMember);
-    writeStaffData(staffMembers);
+    if (error) {
+      console.error('Supabase POST error:', error);
+      if (error.code === '23505') { // Unique violation
+        if (error.message.includes('staff_username_key')) {
+          return NextResponse.json({ message: 'Username already exists.' }, { status: 409 });
+        }
+        if (error.message.includes('staff_email_key')) {
+          return NextResponse.json({ message: 'Email already exists.' }, { status: 409 });
+        }
+      }
+      throw error;
+    }
     
-    console.log("API (File): Added staff member:", newStaffMember);
+    console.log("API (Supabase): Added staff member:", newStaffMember);
 
     // Emit event via Socket.IO
     const io = getSocketServer();
     if (io) {
       io.emit('staffAdded', newStaffMember);
-      console.log('Socket.IO: Emitted staffAdded event', newStaffMember);
+      console.log('Socket.IO: Emitted staffAdded event (Supabase)', newStaffMember);
     } else {
       console.warn('Socket.IO server not available, could not emit staffAdded event. This may be expected in some serverless environments.');
     }
@@ -128,10 +94,9 @@ export async function POST(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ message: 'Validation failed', errors: error.errors }, { status: 400 });
     }
-    console.error('API Error (POST /api/staff - File): Error creating staff member:', error);
+    console.error('API Error (POST /api/staff - Supabase):', error);
     return NextResponse.json({ 
-      message: `API (File): Error creating staff member. Details: ${error.message || 'Unknown server error.'}.`
+      message: `API (Supabase): Error creating staff member. Details: ${error.message || 'Unknown server error.'}`
     }, { status: 500 });
   }
 }
-

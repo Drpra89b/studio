@@ -37,15 +37,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
+import type { StaffMemberSupabase } from "@/app/api/staff/route"; // Import Supabase type
 
-// Interface matches the data structure from Firestore via API (id is Firestore doc ID)
-export interface StaffMember {
-  id: string; // Firestore document ID
-  name: string;
-  username: string;
-  email: string;
-  status: "Active" | "Disabled";
-}
+// Interface for client-side usage, mapping from StaffMemberSupabase if needed
+// For now, we'll assume StaffMemberSupabase structure is largely compatible with UI needs
+export type StaffMember = StaffMemberSupabase; 
+
 
 // Zod schema for creating staff (matches API, password included for form submission)
 const addStaffFormSchema = z.object({
@@ -59,11 +56,10 @@ type AddStaffFormValues = z.infer<typeof addStaffFormSchema>;
 
 // Zod schema for editing staff (matches API)
 const editStaffFormSchema = z.object({
-  id: z.string(), // Keep id for identifying the document
+  id: z.string(), 
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   username: z.string().min(3, { message: "Username must be at least 3 characters." }).regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores."),
   email: z.string().email({ message: "Please enter a valid email address." }),
-  // Status is updated via handleToggleStaffStatus, not directly in this edit form
 });
 type EditStaffFormValues = z.infer<typeof editStaffFormSchema>;
 
@@ -100,7 +96,7 @@ export default function ManageStaffPage() {
       const data = await response.json();
       setStaffList(data as StaffMember[]);
     } catch (error) {
-      console.error("Failed to fetch staff list from API:", error);
+      console.error("Failed to fetch staff list from API (Supabase):", error);
       toast({
         title: "Error Loading Staff",
         description: (error as Error).message, 
@@ -114,50 +110,55 @@ export default function ManageStaffPage() {
   React.useEffect(() => {
     fetchStaff();
 
-    // Initialize Socket.IO client connection
     const initializeSocket = () => {
-      // The client attempts to connect.
-      // The `fetch('/api/socket')` call is removed as it's less suitable for Vercel's serverless model
-      // and the Pages API route `src/pages/api/socket.ts` might not be consistently served or effective there.
-      // The Socket.IO client will attempt to connect to the path defined on the server-side setup.
-      // In a local dev environment, this might connect to the server instance running via `next dev`.
-      // On Vercel, true realtime broadcasting from API routes to clients is challenging with this basic setup.
-
-      socket = io(undefined!, { // undefined! uses the current host
-        path: '/api/socket_io', // Must match server-side path in `src/lib/socket-server.ts`
+      socket = io(undefined!, {
+        path: '/api/socket_io',
         addTrailingSlash: false,
-        reconnectionAttempts: 3, // Attempt to reconnect a few times
+        reconnectionAttempts: 3,
       });
 
       socket.on('connect', () => {
-        console.log('Socket.IO: Connected to server');
+        console.log('Socket.IO: Connected to server (Supabase backend)');
         toast({ title: "Realtime Active", description: "Attempting to connect for live staff updates.", variant: "default" });
       });
 
       socket.on('connect_error', (err) => {
         console.error('Socket.IO: Connection error:', err.message);
-        toast({ title: "Realtime Connection Issue", description: `Could not connect for live updates: ${err.message}. Realtime features may be unavailable.`, variant: "destructive" });
+         toast({ title: "Realtime Connection Issue", description: `Could not connect for live updates: ${err.message}. Realtime features may be unavailable.`, variant: "destructive" });
       });
       
       socket.on('disconnect', (reason) => {
         console.log('Socket.IO: Disconnected from server. Reason:', reason);
-        if (reason !== 'io client disconnect') { // Don't toast if client intentionally disconnected
+        if (reason !== 'io client disconnect') { 
             toast({ title: "Realtime Inactive", description: "Disconnected from live updates.", variant: "destructive" });
         }
       });
       
       socket.on('staffAdded', (newStaffMember: StaffMember) => {
-        console.log('Socket.IO: staffAdded event received', newStaffMember);
+        console.log('Socket.IO: staffAdded event received (Supabase)', newStaffMember);
         setStaffList((prevList) => {
           if (prevList.find(staff => staff.id === newStaffMember.id)) {
             return prevList;
           }
-          return [newStaffMember, ...prevList];
+          return [newStaffMember, ...prevList].sort((a,b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
         });
         toast({
           title: "Staff List Updated (Realtime)",
           description: `${newStaffMember.name} was added.`,
         });
+      });
+       // Add listeners for staffUpdated and staffDeleted if implementing those realtime events
+       socket.on('staffUpdated', (updatedStaff: StaffMember) => {
+        setStaffList(prevList => 
+            prevList.map(staff => staff.id === updatedStaff.id ? updatedStaff : staff)
+                    .sort((a,b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+        );
+        toast({ title: "Staff List Updated", description: `${updatedStaff.name}'s details were updated.` });
+      });
+
+      socket.on('staffDeleted', (deletedStaffId: string) => {
+        setStaffList(prevList => prevList.filter(staff => staff.id !== deletedStaffId));
+        toast({ title: "Staff Member Removed", description: `A staff member was removed.` });
       });
     };
 
@@ -199,14 +200,13 @@ export default function ManageStaffPage() {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to create staff member');
       }
-      // The new staff member data should be received via the 'staffAdded' socket event if connected.
-      // If not connected, a manual fetchStaff() might be needed for immediate UI update,
-      // but for realtime, we rely on the socket.
-      // await fetchStaff(); // Optional: uncomment if socket updates are unreliable or for fallback
+      // Data will be added via socket event if successful.
+      // Optionally, call fetchStaff() if socket is unreliable or as a fallback.
+      // await fetchStaff();
       
       toast({
         title: "Staff User Created",
-        description: `${data.name} (Username: ${data.username}) has been added.`,
+        description: `${data.name} (Username: ${data.username}) has been submitted for addition.`,
       });
       addForm.reset();
       setIsAddStaffDialogOpen(false);
@@ -245,8 +245,11 @@ export default function ManageStaffPage() {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to update staff member');
       }
-      // TODO: Emit 'staffUpdated' event from backend and handle on client for full realtime
-      await fetchStaff(); 
+      const updatedStaff = await response.json();
+      // Emit event from backend for other clients, update local state immediately or via socket.
+      if (socket) socket.emit('clientStaffUpdated', updatedStaff); // Client informs server, server broadcasts
+      await fetchStaff(); // Or rely on socket for this client too
+      
       toast({
         title: "Staff User Updated",
         description: `${data.name}'s details have been updated.`,
@@ -277,8 +280,11 @@ export default function ManageStaffPage() {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to update staff status');
       }
-      // TODO: Emit 'staffUpdated' event from backend for status change too
-      await fetchStaff(); 
+      const updatedStaff = await response.json();
+      // Emit event from backend for other clients, update local state immediately or via socket.
+      if (socket) socket.emit('clientStaffUpdated', updatedStaff); // Client informs server, server broadcasts
+      await fetchStaff(); // Or rely on socket for this client too
+
       toast({
         title: "Staff Status Updated",
         description: `${staffMemberName} has been ${newStatus === "Active" ? "enabled" : "disabled"}.`,
@@ -305,8 +311,10 @@ export default function ManageStaffPage() {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to delete staff member');
       }
-      // TODO: Emit 'staffDeleted' event from backend and handle on client
-      await fetchStaff(); 
+      // Emit event from backend for other clients, update local state immediately or via socket.
+      if (socket) socket.emit('clientStaffDeleted', staffId); // Client informs server, server broadcasts
+      await fetchStaff(); // Or rely on socket for this client too
+      
       toast({
         title: "Staff User Deleted",
         description: `Staff member ${staffMemberName} has been permanently deleted.`,
@@ -333,7 +341,7 @@ export default function ManageStaffPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Manage Staff" description="Add new staff, manage their status, and control access." icon={Users} />
+      <PageHeader title="Manage Staff" description="Add new staff, manage their status, and control access. Uses Supabase backend." icon={Users} />
 
       <Card>
         <CardHeader className="flex flex-row justify-between items-center">
@@ -381,6 +389,7 @@ export default function ManageStaffPage() {
                     <FormItem>
                       <FormLabel>Initial Password</FormLabel>
                       <FormControl><Input type="password" placeholder="Set initial password" {...field} /></FormControl>
+                      <FormDescription>This password is for the application, not a Supabase Auth user.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -408,6 +417,7 @@ export default function ManageStaffPage() {
                     <TableHead>Username</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Created At</TableHead>
                     <TableHead className="text-center">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -427,6 +437,7 @@ export default function ManageStaffPage() {
                           {staff.status}
                         </Badge>
                       </TableCell>
+                      <TableCell>{staff.created_at ? new Date(staff.created_at).toLocaleDateString() : 'N/A'}</TableCell>
                       <TableCell className="text-center space-x-1 sm:space-x-2">
                         <Button variant="outline" size="sm" onClick={() => handleEditStaff(staff)} className="min-w-24 sm:min-w-28" disabled={isSubmitting}>
                             <Edit className="mr-1 sm:mr-2 h-4 w-4"/> Edit
@@ -475,7 +486,6 @@ export default function ManageStaffPage() {
         </CardContent>
       </Card>
 
-      {/* Edit Staff Dialog */}
       <Dialog open={isEditStaffDialogOpen} onOpenChange={(isOpen) => {
           setIsEditStaffDialogOpen(isOpen);
           if (!isOpen) setEditingStaff(null);
@@ -484,7 +494,7 @@ export default function ManageStaffPage() {
           <DialogHeader>
             <DialogTitle>Edit Staff Member</DialogTitle>
             <DialogDescription>
-              Update the details for {editingStaff?.name}. Password cannot be changed here.
+              Update the details for {editingStaff?.name}.
             </DialogDescription>
           </DialogHeader>
           {editingStaff && (
@@ -527,4 +537,3 @@ export default function ManageStaffPage() {
     </div>
   );
 }
-
